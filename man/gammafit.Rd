@@ -2,10 +2,15 @@
 % Please edit documentation in R/hsmm_sojourn_functions.R
 \name{gammafit}
 \alias{gammafit}
-\title{estimates gamma distribution parameters using method of moments}
+\title{Estimates gamma distribution parameters using method of moments}
 \usage{
 gammafit(x, wt = NULL)
 }
+\arguments{
+\item{x}{a vector of values that need to be described by a Gamma distribution.}
+
+\item{wt}{(optional) a vector of weights with values in [0,1] and of the same length of \code{x}.}
+}
 \description{
-estimates gamma distribution parameters using method of moments
+Estimates gamma distribution parameters using method of moments
 }

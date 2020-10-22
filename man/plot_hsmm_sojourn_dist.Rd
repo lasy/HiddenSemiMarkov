@@ -4,12 +4,14 @@
 \alias{plot_hsmm_sojourn_dist}
 \title{Visualizes the sojourn distributions of a hidden semi-Markov model.}
 \usage{
-plot_hsmm_sojourn_dist(model, maxt = 100)
+plot_hsmm_sojourn_dist(model, maxt = 100, one_panel_per_state = FALSE)
 }
 \arguments{
-\item{model}{a \code{hsmm} or \code{hsmm_spec} object specifying the model for which the sojourn distributions should be visualized.}
+\item{model}{a \code{hsmm} object specifying the model for which the sojourn distributions should be visualized.}
 
-\item{maxt}{(optional) an integer specifying the upper limit for the x-axis, which is the sojourn length.}
+\item{maxt}{(optional) an \code{integer} specifying the upper limit for the x-axis, which is the sojourn length.}
+
+\item{one_panel_per_state}{(optional) a \code{logical} specifying if the sojourn distribution of each state should be displayed in separate vertically stacked panels. Default value is \code{FALSE}.}
 }
 \value{
 a ggplot object.

@@ -15,6 +15,12 @@ Imports:
     ggplot2,
     cowplot,
     tidyr,
-    shiny
+    shiny,
+    viridis,
+    ggnewscale
 Depends: 
     R (>= 2.10)
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
