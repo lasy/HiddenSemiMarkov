@@ -36,7 +36,7 @@ label_sequences = function(model, X, ground_truth = data.frame(), verbose = FALS
   provided_ground_truth = ground_truth
 
   # CHECKS
-  # TODO: check model
+  model = .check_model(model = model)
 
   X = .check_data(data = X, model = model)
   if(nrow(ground_truth)>0)
@@ -47,8 +47,8 @@ label_sequences = function(model, X, ground_truth = data.frame(), verbose = FALS
   if(length(state_columns)>0){
     decodings = stringr::str_remove(state_columns, "state_?")
     if(any(stringr::str_length(decodings)== 0) | any(decodings == "ground_truth")) stop("If state sequences are provided as columns of X, their column name must start with 'state_name' where 'name' is specifying the type of state sequence. 'name' cannot be 'ground_truth'.")
-  }
-  X = X %>% dplyr::bind_cols(., provided_X %>% dplyr::select(all_of(state_columns)))
+  }else{decodings = c()}
+  X = X %>% dplyr::left_join(., provided_X %>% dplyr::select(seq_id, t, dplyr::all_of(state_columns)), by = c("seq_id","t"))
 
   # adding the ground truth to X
   if(nrow(ground_truth)>0){
@@ -62,7 +62,7 @@ label_sequences = function(model, X, ground_truth = data.frame(), verbose = FALS
   selected_seq = all_seq[1]
   this_seq_X = X %>% dplyr::filter(seq_id == selected_seq)
   max_t = max(this_seq_X$t)
-  decoding = decodings[1]
+  if(length(decodings) > 0) decoding = decodings[1] else decoding = c()
 
   # INTERACTIVE GUI (SHINY APP)
   app <- shinyApp(
@@ -80,14 +80,16 @@ label_sequences = function(model, X, ground_truth = data.frame(), verbose = FALS
         ),
         hr(),
 
-        h4("Decoding validation"),
-        fluidRow(title = "Decoding validation",
-                 column(width = 3, selectInput(inputId = "Decoding_type", label = "Select decoding",
-                                               choices = decodings, selected = decoding)),
-                 column(width = 9, style = "margin-top: 25px;", actionButton(inputId = "Validate",
-                                                                             label = "Validate the decoding at the selected positions"))
-        ),
-        hr(),
+
+        if(length(decodings) > 0) h4("Decoding validation"),
+        if(length(decodings) > 0)
+          fluidRow(title = "Decoding validation",
+                   column(width = 3, selectInput(inputId = "Decoding_type", label = "Select decoding",
+                                                 choices = decodings, selected = decoding)),
+                   column(width = 9, style = "margin-top: 25px;", actionButton(inputId = "Validate",
+                                                                               label = "Validate the decoding at the selected positions"))
+          ),
+        if(length(decodings) > 0) hr(),
 
         plotOutput(outputId = "Sequence_viz"),
 
@@ -165,9 +167,12 @@ label_sequences = function(model, X, ground_truth = data.frame(), verbose = FALS
 
           # we select the
           t1 = input$Zoom_range[1]; t2 = input$Zoom_range[2]
+          cols_to_select = c("seq_id","t",names(model$marg_em_probs), "state_ground_truth")
+          if(length(decodings)>0) cols_to_select = c(cols_to_select, paste0("state_",input$Decoding_type))
+
           this_seq_X = X %>%
             dplyr::filter(seq_id == selected_seq, t %in% t1:t2) %>%
-            dplyr::select(seq_id, t, all_of(names(model$parms.emission)), state_ground_truth, all_of(paste0("state_",input$Decoding_type)) )
+            dplyr::select(all_of(cols_to_select))
 
           current_selection = data.frame(state = match(input$State, model$state_names),
                                          start = input$Selection_range[1]-0.5,

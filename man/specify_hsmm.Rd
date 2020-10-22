@@ -6,17 +6,24 @@
 \usage{
 specify_hsmm(
   J,
+  state_names = NULL,
+  state_colors = NULL,
   init,
   transition,
   sojourn,
-  parms.emission,
-  state_names = NULL,
-  state_colors = NULL,
-  augment_data_fun = NULL
+  marg_em_probs,
+  censoring_probs = NULL,
+  augment_data_fun = NULL,
+  sim_seed = NULL,
+  verbose = FALSE
 )
 }
 \arguments{
 \item{J}{an integer. The number of hidden states.}
+
+\item{state_names}{(optional) a vector of characters. Names associated to each state. Must be of length \code{J}. If unspecified, the states are numbered from 1 to \code{J}}
+
+\item{state_colors}{(optional) a vector of color-specifying characters. Colors associated to each state. Must be of length \code{J}. If unspecified, the colors are picked from the \code{viridis} palette.}
 
 \item{init}{a vector of double. The initial probabilities associated with each states. Must be a vector of length \code{J}. If values do not sum to 1 a warning message is displayed and the vector is divided by its sum.}
 
@@ -28,42 +35,49 @@ If the sum over the rows is different that one, a warning message is displayed a
 \item{sojourn}{a list. The sojourn distributions. The list must have at least two elements: a \code{type} element which specifies the type of sojourn distributions and the other elements are the distribution parameters.
 Use the function \code{available_sojourn_dist()} to see the supported sojourn distributions.}
 
-\item{parms.emission}{a list. The marginal emission distributions. TODO: explain how to format them.}
-
-\item{state_names}{(optional) a vector of characters. Names associated to each state. Must be of length \code{J}. If unspecified, the states are numbered from 1 to \code{J}}
-
-\item{state_colors}{(optional) a vector of color-specifying characters. Colors associated to each state. Must be of length \code{J}. If unspecified, the colors are picked from the \code{viridis} palette.}
+\item{marg_em_probs}{a list. The marginal emission distributions. The list has one element per variable.
+The name of that element must be the name of the variable. Variable names cannot contain the character '_'.
+Each element of the list is itself a list of at least two elements.
+The first one, named \code{type}, is used to specify the distribution family. Type \code{available_marginal_emission_dist()} to get the currently supported distribution families.
+The second element of the list, \code{params}, is a list that provides the parameters of the model in each state.
+The same function (\code{available_marginal_emission_dist()}) provides information on how these parameters must be specified.
+An optional third element can be added to the variable list: \code{viz-options}.
+This element is a list in which each element specifies a given visualization option.
+Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
+See function \code{plot_hsmm_seq()} for visualization of observation sequences.}
 
 \item{augment_data_fun}{(optional) a function that takes as argument a matrix of observation (see xxx TODO for how observations must be formatted) and returns a matrix of augmented variables. Additionally, this function must have xxx TODO xxx explain the requirements.}
+
+\item{verbose}{a logical (default = \code{FALSE}). Should the function print additional information?}
+
+\item{global_censoring_prob}{(optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)}
 }
 \value{
-An object of class \code{hsmm_spec} which can be used to simulate data following the model specification and which can be initialized with the function \code{initialize_hsmm()}.
+An object of class \code{hsmm} which can be used to simulate time series with the \code{simulate_hsmm()} function or to decode time-series with the \code{predict_hsmm_states()} function. The returned \code{hsmm} object (model) can also be fit to specific sequences with the \code{fit_hsmm()} function.
 }
 \description{
-This function returns an object of class \code{hsmm_spec} from the parameters passed as arguments.
+This function returns an object of class \code{hsmm} from the parameters passed as arguments.
 }
 \examples{
-my_model_spec = specify_hsmm(
+my_model = specify_hsmm(
    J = 2,
    init = c(1,0),
    transition = matrix(c(0,1,1,0),2,2),
    sojourn = list(type = "gamma", shape = c(2,10), scale = c(10,3)),
-   parms.emission = list(
+   marg_em_probs = list(
        var1 = list(
            type = "norm",
            params = list(
                mean = c(0,1),
                sd = c(0.3,0.2)
-               ),
-           missing_prob = c(0.6,0.1)
+               )
            ),
      var2 = list(
          type = "binom",
          params = list(
              size = rep(1,2),
              prob = c(0.2,0.8)
-             ),
-         missing_prob = c(0,0)
+             )
          ),
      var3 = list(
          type = "non-par",
@@ -72,15 +86,16 @@ my_model_spec = specify_hsmm(
              probs = matrix(c(0.7,0.1,0.1,0.1,
                             1/4,1/4,1/4,1/4), 4,2)
            ),
-         missing_prob = c(0.5,0.5)
+         viz_options = list(colors = c("black","slateblue1","#E90046","#0EC290"))
          )
      ),
+   censoring_probs = list(p = c(0.1,0.2), q = matrix(c(0.1,0.2,0.3,0.4,0.5,0.6), nrow = 3, ncol = 2)),
    state_names = c("A","B"),
-   state_colors = c("seagreen1","lightcoral")
+   state_colors = c("seagreen1","slategray")
 )
-class(my_model_spec)
-Xsim = simulate_hsmm(model = my_model_spec)
-plot_hsmm_seq(model = my_model_spec, X = Xsim)
+class(my_model)
+Xsim = simulate_hsmm(model = my_model, n_state_transitions = 20)
+plot_hsmm_seq(model = my_model, X = Xsim)
 
 
 }

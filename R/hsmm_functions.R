@@ -1,11 +1,10 @@
 
-####### INITIALIZATION AND CHECKING FUNCTIONS ---------------------
 
-
+####### SPECIFICATION AND SUPPORT FUNCTIONS ---------------------
 
 #' Specifies a hidden semi-Markov model
 #'
-#' This function returns an object of class \code{hsmm_spec} from the parameters passed as arguments.
+#' This function returns an object of class \code{hsmm} from the parameters passed as arguments.
 #' @param J an integer. The number of hidden states.
 #' @param init a vector of double. The initial probabilities associated with each states. Must be a vector of length \code{J}. If values do not sum to 1 a warning message is displayed and the vector is divided by its sum.
 #' @param transition a matrix of double. The transition probabilities.
@@ -14,38 +13,47 @@
 #'     If the sum over the rows is different that one, a warning message is displayed and the rows are divided by their sum.
 #' @param sojourn a list. The sojourn distributions. The list must have at least two elements: a \code{type} element which specifies the type of sojourn distributions and the other elements are the distribution parameters.
 #' Use the function \code{available_sojourn_dist()} to see the supported sojourn distributions.
-#' @param parms.emission a list. The marginal emission distributions. TODO: explain how to format them.
+#' @param marg_em_probs a list. The marginal emission distributions. The list has one element per variable.
+#' The name of that element must be the name of the variable. Variable names cannot contain the character '_'.
+#' Each element of the list is itself a list of at least two elements.
+#' The first one, named \code{type}, is used to specify the distribution family. Type \code{available_marginal_emission_dist()} to get the currently supported distribution families.
+#' The second element of the list, \code{params}, is a list that provides the parameters of the model in each state.
+#' The same function (\code{available_marginal_emission_dist()}) provides information on how these parameters must be specified.
+#' An optional third element can be added to the variable list: \code{viz-options}.
+#' This element is a list in which each element specifies a given visualization option.
+#' Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
+#' See function \code{plot_hsmm_seq()} for visualization of observation sequences.
+#' @param global_censoring_prob (optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)
 #' @param state_names (optional) a vector of characters. Names associated to each state. Must be of length \code{J}. If unspecified, the states are numbered from 1 to \code{J}
 #' @param state_colors (optional) a vector of color-specifying characters. Colors associated to each state. Must be of length \code{J}. If unspecified, the colors are picked from the \code{viridis} palette.
 #' @param augment_data_fun (optional) a function that takes as argument a matrix of observation (see xxx TODO for how observations must be formatted) and returns a matrix of augmented variables. Additionally, this function must have xxx TODO xxx explain the requirements.
+#' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
 #'
 #' @keywords HSMM
-#' @return An object of class \code{hsmm_spec} which can be used to simulate data following the model specification and which can be initialized with the function \code{initialize_hsmm()}.
+#' @return An object of class \code{hsmm} which can be used to simulate time series with the \code{simulate_hsmm()} function or to decode time-series with the \code{predict_hsmm_states()} function. The returned \code{hsmm} object (model) can also be fit to specific sequences with the \code{fit_hsmm()} function.
 #'
 #' @export
 #' @importFrom magrittr %>%
 #' @examples
-#' my_model_spec = specify_hsmm(
+#' my_model = specify_hsmm(
 #'    J = 2,
 #'    init = c(1,0),
 #'    transition = matrix(c(0,1,1,0),2,2),
 #'    sojourn = list(type = "gamma", shape = c(2,10), scale = c(10,3)),
-#'    parms.emission = list(
+#'    marg_em_probs = list(
 #'        var1 = list(
 #'            type = "norm",
 #'            params = list(
 #'                mean = c(0,1),
 #'                sd = c(0.3,0.2)
-#'                ),
-#'            missing_prob = c(0.6,0.1)
+#'                )
 #'            ),
 #'      var2 = list(
 #'          type = "binom",
 #'          params = list(
 #'              size = rep(1,2),
 #'              prob = c(0.2,0.8)
-#'              ),
-#'          missing_prob = c(0,0)
+#'              )
 #'          ),
 #'      var3 = list(
 #'          type = "non-par",
@@ -54,524 +62,279 @@
 #'              probs = matrix(c(0.7,0.1,0.1,0.1,
 #'                             1/4,1/4,1/4,1/4), 4,2)
 #'            ),
-#'          missing_prob = c(0.5,0.5)
+#'          viz_options = list(colors = c("black","slateblue1","#E90046","#0EC290"))
 #'          )
 #'      ),
+#'    censoring_probs = list(p = c(0.1,0.2), q = matrix(c(0.1,0.2,0.3,0.4,0.5,0.6), nrow = 3, ncol = 2)),
 #'    state_names = c("A","B"),
-#'    state_colors = c("seagreen1","lightcoral")
+#'    state_colors = c("seagreen1","slategray")
 #' )
-#' class(my_model_spec)
-#' Xsim = simulate_hsmm(model = my_model_spec)
-#' plot_hsmm_seq(model = my_model_spec, X = Xsim)
+#' class(my_model)
+#' Xsim = simulate_hsmm(model = my_model, n_state_transitions = 20)
+#' plot_hsmm_seq(model = my_model, X = Xsim)
 #'
 #'
-specify_hsmm = function(J, init, transition, sojourn, parms.emission, state_names = NULL, state_colors = NULL, augment_data_fun = NULL){
+specify_hsmm = function(J,
+                        state_names = NULL, state_colors = NULL,
+                        init, transition,
+                        sojourn,
+                        marg_em_probs,
+                        censoring_probs = NULL,
+                        augment_data_fun = NULL,
+                        sim_seed = NULL,
+                        verbose = FALSE){
 
-  if((round(J) != J) | (J <= 0)) stop("J must be a strictly positive integer.")
+  # 1 . checks
+  if(verbose) cat("Checking inputs\n")
 
-  # initial probabilities
-  if(length(init) != J) stop("initial probability vector `init` must have J elements")
+  J = .check_J(J)
+  init = .check_init(init, J)
+  transition = .check_transitions(transition, J)
+  sojourn = .check_sojourn(sojourn, J)
+  marg_em_probs = .check_marg_em_probs(marg_em_probs, J)
+  censoring_probs = .check_censoring_probs(censoring_probs, J, length(marg_em_probs))
+  state_names = .check_state_names(state_names, J)
+  state_colors = .check_state_colors(state_colors, J)
+  augment_data_fun = .check_augment_data_fun(augment_data_fun)
 
-  # transition probabilities
-  if(NROW(transition) != J)  stop("transition matrix `transition` must have J rows")
-  if(NCOL(transition) != J)  stop("transition matrix `transition` must have J columns")
-  if(any(rowSums(transition) != 1)) warning("Transition matrix rows do not sum to 1. Values will be normalized such that the transition probabilities from any state sum to 1.")
-  if(any(diag(transition) != 0)){
-    #any absorbing states?
-    j = which(diag(transition) != 0) # j are the states that have self-transitions
-    k = which(rowSums(transition - diag(transition)) == 0) # k are the absorbing states
-    l = setdiff(j,k) # l are the non-absorbing states with self-transitions
-    if(length(l) > 0){
-      warning("Some non-absorbing states had non-zero self-transition probabilities (i.e. non-zero elements on the diagonal). These self-transitions will be set to 0.")
-      transition[cbind(l,l)] = 0
-    }
-  }
-  transition = transition/rowSums(transition)
+  model = list(J = J,
+               state_names = state_names,
+               state_colors = state_colors,
+               init = init,
+               transition = transition,
+               sojourn = sojourn,
+               marg_em_probs = marg_em_probs,
+               censoring_probs = censoring_probs,
+               augment_data_fun = augment_data_fun)
 
-  # sojourns
-  if(is.null(sojourn$type)) stop("Sojourn distribution type not specified.")
-  supported_sojourns = available_sojourn_dist()$distribution_type
-  if(all(sojourn$type!= supported_sojourns)) stop(paste("Invalid sojourn type specified (",sojourn$type,"). Must be one of: ", paste(supported_sojourns, collapse = ", ")))
-  # TODO: check that the params of the sojourns are specified as they should.
+  # 2. Initialize model emission_probabilities
 
-  # emission parameters
-  if(is.null(parms.emission) | (length(parms.emission) == 0)) stop("Emission parameters (parms.emission) are not specified.
-                                        They should be specified as a list with one element per observed variable.
-                                        Each list element should specify the name of that variable, its distribution family (e.g. 'norm', 'binom', 'non-par')
-                                        and its parameters/distribution for each state.")
-  if(is.null(names(parms.emission))) names(parms.emission) = 1:length(parms.emission)
+  if(verbose) cat("Initializing obs_probs \n")
+  if(is.null(sim_seed)) sim_seed = Sys.time() %>% as.numeric()
+  model$obs_probs = .initialize_obs_probs(model, sim_seed = sim_seed)
 
-  flag = FALSE
-  for(var in names(parms.emission)){
-    var_parem = parms.emission[[var]]
-    params_names = names(var_parem$params)
-    # parameters
-    if(var_parem$type == "norm"){
-      if(!all(c( "mean", "sd" ) %in% params_names))
-        stop(paste0("Variable '",var,"' is 'norm' and must have the following params: \n",
-                    "parms.emission$",var,"$params = list(\nmean = ...vector of J means...,",
-                    "\nsd = ...vector of J sd...,",
-                    "\nnu (optional) = ...fitting hyper-parameter for conjugate prior...,",
-                    "\nalpha (optional) = ...fitting hyper-parameter for conjugate prior...,",
-                    "\nbeta (optional) = ...fitting hyper-parameter for conjugate prior...)"))
-      if(is.null(var_parem$params$n0)) parms.emission[[var]]$params$n0 = 200
-      if(is.null(var_parem$params$alpha)) parms.emission[[var]]$params$alpha = parms.emission[[var]]$params$n0/2
-      if(is.null(var_parem$params$beta)) parms.emission[[var]]$params$beta = parms.emission[[var]]$params$alpha/2 * parms.emission[[var]]$param$sd^2
-      parms.emission[[var]]$params$mu_0 = parms.emission[[var]]$params$mean
-      parms.emission[[var]]$breaks =
-        c(-Inf,
-          seq(min(parms.emission[[var]]$params$mean - 3*parms.emission[[var]]$param$sd),
-              max(parms.emission[[var]]$params$mean + 3*parms.emission[[var]]$param$sd),
-              len = 8),
-          Inf)
+  if(verbose) cat("Format b \n")
+  model$b = model$obs_probs %>% dplyr::select(-p0) %>%
+    tidyr::pivot_wider(names_from = state, values_from = p, names_prefix = "p_")
 
-    }else if(var_parem$type == "binom"){
-      if(!all(c( "size", "prob" ) %in% params_names))
-        stop(paste0("Variable '",var,"' is 'binom' and must have the following params: \n",
-                    "parms.emission$",var,"$params = list(",
-                    "\nsize = ...vector of J size...,",
-                    "\nprob = ...vector of J prob...,",
-                    "\nalpha (optional) = ...fitting hyper-parameter for conjugate prior...,",
-                    "\nbeta (optional) = ...fitting hyper-parameter for conjugate prior...)"))
-
-      prob_0 = parms.emission[[var]]$params$prob
-      if(is.null(var_parem$params$n0)) var_parem$params$n0 = 100
-      parms.emission[[var]]$params$alpha = var_parem$params$n0 * prob_0
-      parms.emission[[var]]$params$beta = parms.emission[[var]]$params$alpha * (1-prob_0)/prob_0
-
-    }else if(var_parem$type == "non-par"){
-      if(!all(c( "values", "probs" ) %in% params_names))
-        stop(paste0("Variable '",var,"' is 'non-par' and must have the following params: \n",
-                    "parms.emission$",var,"$params = list(\nvalues = ...vector of values..., \nprobs = ...matrix (nrow = # of values, ncol = # of states)..., \nalpha (optional) = ...fitting hyper-parameter for conjugate prior...)"))
-      if(is.null(var_parem$params$n0)) parms.emission[[var]]$params$n0 = 100
-      parms.emission[[var]]$params$probs_0 = parms.emission[[var]]$params$probs
-    }
-
-    # missing probs
-    if(is.null(var_parem$missing_prob)){
-      parms.emission[[var]]$missing_prob = rep(0,J); flag = TRUE
-    }else{
-      lmp = length(parms.emission[[var]]$missing_prob)
-      if((lmp != 1) & (lmp<J)) stop(stringr::str_c("Length of 'missing_prob' of variable ",var," is neither 1 or J."))
-      if(lmp == 1) parms.emission[[var]]$missing_prob = rep(parms.emission[[var]]$missing_prob,J)
-    }
-  }
-  if(flag) warning("Some variables are assumed to never be missing. You can change this by specifying the missing probability for each variable in each state by adding an element 'missing_prob' to the list of the variables you think may be missing sometimes.")
-
-
-  if(is.null(augment_data_fun)) augment_data_fun = function(X, get_var_names_only = FALSE) if(get_var_names_only) c() else data.frame()
-
-
-  if(is.null(state_names)) state_names = 1:J
-  if(length(state_names) != J) stop("state_names must be of length J")
-
-  if(is.null(state_colors)) state_colors = viridis_pal(option = "C")(J)
-  if(length(state_colors) != J) stop("state_colors must be of length J")
-
-  ans = list(J = J,
-             init = init,
-             transition = transition,
-             sojourn = sojourn,
-             parms.emission = parms.emission,
-             augment_data_fun = augment_data_fun,
-             state_names = state_names,
-             state_colors = state_colors)
-
-  class(ans) <- 'hsmm_spec'
-  ans
-}
-
-
-
-#' Initialize a hidden semi-Markov model.
-#'
-#' This function initializes the joint emission probabilities given the states,
-#' i.e. determines the values of \eqn{Pr(X_i, E_i | S_j)}  where \eqn{X_i} are the observations at a given time-point \eqn{i}, \eqn{E_i} are the values of the augmented variables at time-point \eqn{i} and \eqn{S_j} is the state \eqn{j}.
-#'
-#' @param model a \code{hsmm_spec} object. A specified hidden semi-Markov model. Use the function \code{specify_hsmm()} to specify a hidden semi-Markov model.
-#' @param nmin (optional) a strictly positive integer. XXXX
-#' @param seq_sim_seed (optional) an integer. XXX
-#' @param verbose (optional) a logical. If TRUE, the function prints the internal steps of the function.
-#'
-#' @return an object of class \code{hsmm}, which can be used to decode observation sequences with the function \code{predict_states_hsmm()} or which can be fitted to observations with the function \code{fit_hsmm()}.
-#'
-#' @importFrom magrittr %>%
-#' @export
-#' @examples
-#' my_model_spec = simple_model_spec
-#' class(my_model_spec)
-#' my_model_init = initialize_hsmm(my_model_spec)
-#' class(my_model_init)
-#'
-initialize_hsmm = function(model,
-                           nmin = NULL,
-                           verbose = FALSE,
-                           seq_sim_seed = NULL){
-
-  # CHECKS
-  # check if model is of class 'hsmm_spec' or 'hsmm'
-  if(!(class(model) %in% c("hsmm_spec","hsmm"))) stop("model must be of class 'hsmm_spec'. Use function 'specify_hsmm' to specify your model.")
-  # seeds
-  if(is.null(seq_sim_seed)) seq_sim_seed = sample(1:10000,1)
-
-  if(verbose) cat("Checks done\n")
-
-
-  all_levels = .get_all_possible_levels(model = model, continuous_var_binned = TRUE)
-  n_levels = apply(all_levels, 2, function(x) length(unique(x)))
-  obs_probs_var = data.frame(state = 1:model$J)
-  for(var in colnames(all_levels)){
-    cn = colnames(obs_probs_var)
-    obs_probs_var = tidyr::expand_grid(obs_probs_var, unique(all_levels[,var])) %>% magrittr::set_colnames(c(cn, var))
+  if(!model$censoring_probs$missing_prob_specified){
+    if(verbose) cat("khdiwhdo \n")
+    j = apply(model$obs_probs, 1, function(x) any(is.na(x))) %>% which()
+    model$obs_probs$p[j] = 0
+    model$obs_probs = model$obs_probs %>%
+      dplyr::group_by(state) %>%
+      dplyr::mutate(sum_prob = sum(p),
+                    p = p/sum_prob,
+                    p0 = p) %>%
+      dplyr::select(-sum_prob)
   }
 
-  if(verbose) cat("Computing marginal emission distribution of model variables.\n")
-  for(var in names(model$parms.emission)){
-    probs_this_var = obs_probs_var %>% dplyr::select(state, dplyr::all_of(var)) %>% unique() %>%
-      dplyr::rename(x = matches(var)) %>%
-      dplyr::mutate(prob_missing = (!is.na(x)) + ifelse(is.na(x),1,-1)* model$parms.emission[[var]]$missing_prob[state])
-
-    if(model$parms.emission[[var]]$type == "norm"){
-      x_continuous = seq(min(model$parms.emission[[var]]$params$mean - 5 * model$parms.emission[[var]]$params$sd),
-               max(model$parms.emission[[var]]$params$mean + 5 * model$parms.emission[[var]]$params$sd),
-               len = 10000)
-      marg_prob = tidyr::expand_grid(x_continuous = x_continuous,
-                      state = 1:model$J)
-      marg_prob = marg_prob %>% dplyr::mutate(x = cut(x_continuous, breaks = model$parms.emission[[var]]$breaks),
-                                       d = dnorm(x = x_continuous,
-                                                 mean = model$parms.emission[[var]]$params$mean[state],
-                                                 sd = model$parms.emission[[var]]$params$sd[state])) %>%
-        dplyr::group_by(state, x) %>% dplyr::summarize(prob = sum(d), .groups = "drop") %>%
-        dplyr::group_by(state) %>% dplyr::mutate(tot = sum(prob), prob_value = prob/tot) %>% dplyr::select(-tot,-prob)
-      probs_this_var = probs_this_var %>%
-        dplyr::left_join(., marg_prob, by = c("state","x")) %>%
-        dplyr::mutate(prob_value = prob_value %>% tidyr::replace_na(1))
-    }else if(model$parms.emission[[var]]$type == "binom"){
-      probs_this_var = probs_this_var %>%
-        dplyr::mutate(prob_value = dbinom(x = x, size = model$parms.emission[[var]]$params$size[state], prob = model$parms.emission[[var]]$params$prob[state]))
-    }else if(model$parms.emission[[var]]$type == "non-par"){
-      probs_this_var = probs_this_var %>%
-        dplyr::mutate(prob_value = model$parms.emission[[var]]$params$probs[cbind(match(x,model$parms.emission[[var]]$params$values),state)])
-
-    }
-    probs_this_var = probs_this_var %>%
-      dplyr::mutate(prob_value = prob_value %>% tidyr::replace_na(1),
-             prob = prob_missing * prob_value) %>%
-      dplyr::select(state, x, prob) %>%
-      magrittr::set_colnames(c("state",var,stringr::str_c("prob_",var)))
-
-    obs_probs_var = obs_probs_var %>% dplyr::left_join(., probs_this_var, by = c("state",var))
-  }
-
-
-  if(length(model$augment_data_fun(get_var_names_only = TRUE)) > 0){
-    if(verbose) cat("Computing marginal emission distribution of the augmented variables by simulating sequences.\n")
-    nmin = 200
-    Xsim = simulate_hsmm(model = model, n_state_transitions = 500, all_states = TRUE, min_tp_per_state = nmin)
-    Xsima = .augment_data(model = model, X = Xsim, verbose = FALSE)
-
-    Evar_names = model$augment_data_fun(get_var_names_only = TRUE)
-    Evar_types = model$augment_data_fun(get_var_types_only = TRUE)
-    for(var in Evar_names){
-      probs_this_var = obs_probs_var %>% dplyr::select(state, dplyr::all_of(var)) %>% unique()
-      obs_prob_this_var = Xsima %>% dplyr::select(state, dplyr::all_of(var)) %>%
-        dplyr::rename(x = matches(var))
-      if(Evar_types[[var]]$type != "cat") obs_prob_this_var = obs_prob_this_var %>% dplyr::mutate(x = cut(x, breaks = c(-Inf, seq(0.2,0.8,by = 0.2),Inf)))
-      obs_prob_this_var = obs_prob_this_var %>%
-        dplyr::group_by(state, x) %>%
-        dplyr::summarize(n = n(), .groups = "drop") %>%
-        dplyr::group_by(state) %>% dplyr::mutate(tot = sum(n)) %>% dplyr::ungroup() %>%
-        dplyr::mutate(prob = n/tot) %>%
-        dplyr::select(state, x, prob) %>%
-        magrittr::set_colnames(c("state",var,"prob"))
-      probs_this_var = probs_this_var %>% dplyr::left_join(., obs_prob_this_var, by = c("state",var)) %>%
-        dplyr::mutate(prob = prob %>% tidyr::replace_na(0)) %>%
-        magrittr::set_colnames(c("state",var,stringr::str_c("prob_",var)))
-      obs_probs_var = obs_probs_var %>% dplyr::left_join(., probs_this_var, by = c("state",var))
-    }
-  }
-
-  if(verbose) cat("Computing joint probabilities.\n")
-
-  prob = apply(
-    obs_probs_var %>% dplyr::select(starts_with("prob_")) %>% as.matrix(),
-    1, prod)
-
-  obs_probs_var = obs_probs_var %>%  dplyr::mutate(p = prob) %>%
-    dplyr::group_by(state) %>%
-    dplyr::mutate(p_max = max(p),
-           p_n = p/p_max) %>% dplyr::ungroup()
-
-
-  model$obs_probs = obs_probs_var %>% dplyr::select(state, dplyr::all_of(colnames(all_levels)), p, p_n)
-  model$obs_probs_0 = model$obs_probs # we keep the initial one for the fitting process
-
-  model$compute_obs_probs_fun = function(model, X, state){
-    s = state
-    all_levels = .get_all_possible_levels(model = model, continuous_var_binned = TRUE)
-    var_names = colnames(all_levels)
-    # cut continuous variables
-    Xp = .cut_continuous_var(model = model, X = X)
-
-    # join X with model$obs_probs filtered for the state
-    P = model$obs_probs %>% dplyr::filter(state == s) %>%  dplyr::select(dplyr::all_of(var_names), p_n) # p_n
-    Xb = dplyr::left_join(Xp, P, by = intersect(colnames(P), colnames(Xp)))
-    # replace NAs by 0
-    Xb = Xb %>% dplyr::mutate(p_n = p_n %>% tidyr::replace_na(0)) # p_n
-    Xb$p_n # p_b
-  }
-
-  # upgrade the class of the model
-  class(model) = "hsmm"
-  # and return it
+  # 3. Returns specified model
+  class(model) <- 'hsmm'
   model
 }
 
 
-.prepare_data_for_init = function(
-  model,
-  nmin,
-  seq_sim_seed,
-  verbose = FALSE){
+.initialize_obs_probs = function(model, sim_seed){
+  all_levels = .get_all_possible_levels(model = model, with_missing = TRUE, continuous_var_binned = TRUE)
+  all_vars = colnames(all_levels)
+  Xsim = data.frame()
+  if(length(model$augment_data_fun(get_var_names_only = TRUE)) > 0)
+    Xsim = simulate_hsmm(model = model, n_state_transitions = 100, all_states = TRUE, min_tp_per_state = 100, seed = sim_seed)
 
-  states = 1:model$J
-
-  all_levels = .get_all_possible_levels(model = model, with_missing = TRUE)
-  n_levels = apply(all_levels, 2, function(x) length(unique(x)))
-  if(is.null(nmin)) nmin = pmin(200 * ceiling(prod(n_levels)^0.5),2000)
-
-  if(verbose) cat("nmin = ",nmin,"\n")
-
-  # we simulate data
-  X = simulate_hsmm(model = model,
-                    n_state_transitions = 500,
-                    all_states = TRUE, mult_seq_allowed = TRUE, min_tp_per_state = nmin,
-                    seed = seq_sim_seed)
-
-  if(verbose) cat("data simulated \n")
-
-  # we augment the data
-  X = X %>% dplyr::arrange(seq_id, t)
-  X = .augment_data(X = X, model = model, verbose = verbose)
-
-  # weights
-  X$w = 1
-  X
+  obs_probs = .get_obs_probs(model = model, vars = all_vars, Xsim = Xsim)
+  missing_probs = .get_missing_probs(model = model)
+  obs_probs$p0 =  obs_probs$p
+  obs_probs
 }
 
 
-.compute_observed_probabilities = function(model, X, verbose){
-
-  all_levels = .get_all_possible_levels(model = model, with_missing = TRUE)
-  var_names = colnames(all_levels)
-
-  Xp = .cut_continuous_var(model = model, X = X)
-
-  P = Xp %>%
-    dplyr::select(dplyr::all_of(var_names), state, w) %>%
-    dplyr::group_by(.dots = dplyr::all_of(c(var_names,"state"))) %>%
-    dplyr::summarize(n = sum(w), .groups = "drop") %>%
-    dplyr::group_by(state) %>% dplyr::mutate(Tot = sum(n)) %>% dplyr::ungroup() %>%
-    dplyr::mutate(p = n / Tot) %>%
-    dplyr::group_by(state) %>%  dplyr::mutate(p_max = max(p)) %>% dplyr::ungroup() %>%
-    dplyr::mutate(p_n = p/p_max)
-
-  P
-}
 
 
-.cut_continuous_var = function(model, X){
-  Xp = X
-  for(var in names(model$parms.emission)) if(model$parms.emission[[var]]$type == "norm") Xp[,var] = X[,var] %>% unlist() %>% cut(., breaks = model$parms.emission[[var]]$breaks)
-  for(var in model$augment_data_fun(get_var_names_only = TRUE)) if(typeof(X[,var]) != "integer") Xp[,var] = X[,var] %>% unlist() %>% cut(., breaks = c(-Inf, 0.2,0.4,0.6,0.8,Inf))
-  Xp
-}
+.get_obs_probs = function(model, vars, Xsim = data.frame()){
 
-
-#' @export
-available_sojourn_dist = function(){
-  available_sojourn = rbind(
-    data.frame(distribution_type = "nonparametric", parameters = "d", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "ksmoothed-nonparametric", parameters = "d", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "gamma", parameters = "shape, scale", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "poisson", parameters = "shift, lambda", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "lnorm", parameters = "meanlog, s.dlog", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "logarithmic", parameters = "shape", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "nbinom", parameters = "size, mu (or prob), shift", stringsAsFactors = FALSE)
-  )
-  available_sojourn
-}
-
-
-#' @export
-.check_data = function(data, model){
-  if(!("data.frame" %in% class(data))) stop("data must be a data.frame\n")
-  if(!("seq_id" %in% colnames(data))){
-    warning("column 'seq_id' is missing. Assuming single sequence.")
-    data$seq_id = 1
+  obs_probs = data.frame(state = 1:model$J)
+  for(var in vars){
+    this_var_obs_probs = .get_marginal_prob(var_name = var, model = model, Xsim = Xsim)
+    this_var_obs_probs = rbind(this_var_obs_probs, tidyr::expand_grid(state = 1:model$J, x = NA, prob = 1))
+    this_var_obs_probs = this_var_obs_probs %>% magrittr::set_colnames(c("state",var,paste0("prob_",var)))
+    obs_probs = obs_probs %>%
+      dplyr::left_join(., this_var_obs_probs, by = c("state"))
   }
-  if(!("t" %in% colnames(data))){
-    warning("column 't' is missing. Assuming no missing time-points and ordered data.frame.")
-    data = data %>% dplyr::group_by(seq_id) %>% dplyr::mutate(t = row_number())
+  obs_probs$p = apply(obs_probs %>% dplyr::select(dplyr::starts_with("prob_")), 1, prod)
+  obs_probs = obs_probs %>% dplyr::select(state, dplyr::all_of(vars), p)
+  obs_probs
+}
+
+
+.initialize_censored_obs_probs = function(model){
+
+  all_vars = names(model$marg_em_probs)
+
+  # we get the observation probabilities (but only for the specified variables, not the augmented ones)
+  obs_probs = .get_obs_probs(model = model, vars = all_vars) %>% dplyr::rename(prob_value = p)
+  # we get the missing probabilities (1-p)*prod(q)
+  missing_probs = .get_missing_probs(model = model)
+
+  # we build the censored_obs_probs data.frame from the obs_probs (as they have the same rows)
+  censored_obs_probs = obs_probs %>%
+    dplyr::mutate(dplyr::across(tidyselect::all_of(all_vars),
+                                is.na,
+                                .names = "{col}_is_missing"))
+
+  # we join with the missing probs and with pj
+  censored_obs_probs =
+    censored_obs_probs %>%
+    dplyr::left_join(.,
+                     missing_probs,
+                     by = c("state", paste0(all_vars,"_is_missing"))) %>%
+    dplyr::mutate(prob = prob_value * prob_missing) %>%
+    dplyr::left_join(.,
+                     data.frame(state = 1:model$J, pj = model$censoring_probs$p),
+                     by = "state")
+
+  censored_obs_probs$add_pj =
+    apply(censored_obs_probs %>% dplyr::select(dplyr::ends_with("_is_missing")), 1, all)
+
+  censored_obs_probs = censored_obs_probs %>%
+    dplyr::mutate(pj = add_pj*pj,
+                  p = prob + pj) %>%
+    dplyr::select(state, dplyr::all_of(all_vars), p) %>%
+    dplyr::mutate(p0 = p)
+  censored_obs_probs
+}
+
+
+.get_missing_probs = function(model = model){
+  q = model$censoring_probs$q
+  q = as.data.frame(q) %>%
+    magrittr::set_colnames(1:model$J) %>%
+    magrittr::set_rownames(names(model$marg_em_probs))
+
+  missing_probs = data.frame(state = 1:model$J)
+  for(var in names(model$marg_em_probs)){
+    missing_probs = missing_probs %>%
+      dplyr::left_join(
+        .,
+        data.frame(state = rep(1:model$J, 2),
+                   x = rep(c(TRUE, FALSE), each = model$J),
+                   prob = c(q[var,] %>%  unlist(), 1-q[var,] %>% unlist())) %>%
+          magrittr::set_colnames(c("state", paste0(var,"_is_missing"),paste0("prob_",var))),
+        by = c("state"))
   }
-  # checking that the data has a column for each model variable
-  j = which(!(names(model$parms.emission) %in% colnames(data)))
-  if(length(j)>0) stop(stringr::str_c("The data must contain a column for each of the model variable. Missing variables: ",stringr::str_c(names(model$parms.emission)[j],collapse = ", ")))
-  data = data %>% dplyr::arrange(seq_id, t) %>% dplyr::ungroup()
+  missing_probs$prob_missing = apply(missing_probs %>% dplyr::select(dplyr::starts_with("prob_")),1,prod)
+  missing_probs = missing_probs %>% dplyr::select(state, dplyr::ends_with("_is_missing"), prob_missing)
+  missing_probs = missing_probs %>%
+    dplyr::left_join(., data.frame(state = 1:model$J, p = 1-model$censoring_probs$p), by = "state") %>%
+    dplyr::mutate(prob_missing = prob_missing * p) %>%
+    dplyr::select(-p)
 
-  # select only the columns we need
-  var_names = names(model$parms.emission)
-  if(.is_data_augmented(data = data, model = model)) var_names = c(var_names,model$augment_data_fun(X = NULL, get_var_names_only = TRUE)) # stringr::str_c(var_names,"_M")
-  data = data %>% dplyr::select(seq_id, t, dplyr::all_of(var_names))
-
-  # checking the type and values of each variable
-  data = .check_types_and_values(data = data, parem = model$parms.emission)
-  data
+  missing_probs
 }
 
 
-.check_types_and_values = function(data, parem, continuous_var_binned = FALSE){
-
-  for(var in names(parem)){
-    if(parem[[var]]$type == "non-par") data[,var] = data[,var] %>% unlist() %>% factor(., levels = parem[[var]]$params$values)
-
-    if(parem[[var]]$type == "norm"){
-      if(!continuous_var_binned){
-        data[,var] = data[,var]  %>%  unlist() %>% as.character() %>% as.double()
-      }else{
-        data[,var] = data[,var] %>% unlist() %>% factor(., levels = levels(cut(1:10, breaks = parem[[var]]$breaks)))
-      }
-    }
-
-    if(parem[[var]]$type == "binom"){
-      data[,var] =  data[,var] %>%  unlist() %>% as.character() %>% as.integer()
-      if(!all(is.na(data[,var]))){
-        if(min(data[,var], na.rm = TRUE) < 0) stop(stringr::str_c("variable ",var," is described by a binomial distribution but the provided data has negative values for this variable."))
-        if(max(data[,var], na.rm = TRUE) > max(parem[[var]]$params$size)) stop(stringr::str_c("variable ",var," is described by a binomial distribution with max size: ",max(parem[[var]]$params$size)," but the provided data has values as high as ",max(data[,var], na.rm = TRUE)))
-      }
-    }
-  }
-  data
-}
-
-#' @export
-.augment_data = function(model, X, verbose = FALSE){
-
-  if(.is_data_augmented(data = X, model = model)) return(X)
-
-  var_names = names(model$parms.emission)
-  #M = X %>% select(all_of(var_names)) %>% is.na() %>%  set_colnames(str_c(var_names, "_M")) %>%  set_rownames(rownames(X))
-  #M = M*1
-
-  if(verbose) cat("augmenting the data ...")
-  E_fun = model$augment_data_fun
-  E = E_fun(X)
-  if(verbose) cat("... done\n")
-
-  if(nrow(E) == nrow(X)) augmented_X = cbind(X, E) else augmented_X = X #cbind(X, M)
-  augmented_X
-}
-
-.is_data_augmented = function(data, model = model){
-  required_cols = c(names(model$parms.emission),  model$augment_data_fun(X = NULL, get_var_names_only = TRUE)) # str_c(names(model$parms.emission),"_M"),
-  ifelse(all(required_cols %in% colnames(data)), TRUE, FALSE)
-}
-
-.check_ground_truth = function(ground_truth, model, X){
-
-  # check the columns
-  cond_col = all(c("seq_id","t","state") %in% colnames(ground_truth))
-  if(!cond_col){stop("Ground truth must be a data.frame with the following columns: seq_id, t, state, weight (optional).")}
-  # ground_truth$state must be numbers from 1:J or NAs
-  cond_state = all(unique(ground_truth$state) %in% c(NA, 1:model$J))
-  if(!cond_state){stop("The ground truth state column must be a number in 1:J where J is the number of state in the model. NAs are accepted.")}
-  # there should not be any duplicated in the ground_truth
-  if(any(duplicated(ground_truth %>% dplyr::select(seq_id, t)))) stop("There are duplicated time-points in the provided ground truth.")
-
-  # we match ground truth to X
-  tmp = dplyr::left_join(X %>% dplyr::select(seq_id, t) %>%  dplyr::mutate(seq_id = as.character(seq_id), t = as.numeric(t), in_X = TRUE),
-                  ground_truth %>%  dplyr::mutate(seq_id = as.character(seq_id), t = as.numeric(t), in_GT = TRUE),
-                  by = c("seq_id","t"))
-  ground_truth = tmp; rm(tmp)
-  # give a warning if none of the labels matched the X sequences
-  if(all(is.na(ground_truth$state))){warning("The provided ground truth does not match any of the sequences of the observed data.")}
-
-  # we define states as factors
-  ground_truth = ground_truth %>% dplyr::mutate(state = factor(state, levels = 1:model$J))
-
-  # we return it
-  ground_truth
+#' Computes matrix b for a given sequence of observations.
+.compute_obs_probs = function(model, X){
+  Xp = .cut_continuous_var(model = model, X = X) # cut continuous variables so that they match values in matrix b
+  Xb = dplyr::left_join(Xp, model$b, by = intersect(colnames(model$b), colnames(Xp))) # join X with model$b
+  p = Xb %>% dplyr::select(dplyr::matches("p_")) %>% as.matrix() # select the prob columns and turn them into a matrix
+  p
 }
 
 
 
 ####### DECODING (predicting state sequence) ---------------------
 
-
-# wrapper for "predict" generic function
-predict.hsmm <- function(object, newdata, method = "viterbi", verbose = FALSE, ...) {
-
-  if(class(object) == 'hsmm_spec')stop(stringr::str_c("\n object's class is 'hsmm_spec'.\n",
-                                             "Use the function 'initialize_hsmm' to transform its class to 'hsmm'.\n",
-                                             "This function will provide your model with models and functions that ",
-                                             "will be used to compute the local probability of each state."))
-
-  if(class(object) != "hsmm") stop("object must be of class 'hsmm'.")
-
-  model = object
-  X = newdata
-  ans = predict_states_hsmm(model = model, X = X, method = method, verbose = verbose, ...)
+#' Predicts the hidden state sequence from observations
+#'
+#' This function is a wrapper around the function \code{predict_states_hsmm()}.
+#' It predicts the most likely hidden states from observations.
+#' Two methods are implemented:
+#' \code{"Viterbi"} applies the Viterbi algorithm and predicts the most likely sequence of hidden states,
+#' and \code{"FwBw"} applies the Forward-Backward algorithm and returns the probability of each state at each time-point.
+#'
+#' @param object an \code{hsmm} model specified via the \code{specify_hsmm()} function.
+#' @param newdata a \code{data.frame} with the observation sequences.
+#' @param method a \code{character} specifying the method to be used, i.e. either \code{"Viterbi"} or \code{"Fwbw"}.
+#'
+#' @seealso see \code{predict_states_hsmm()} for the full description, options and examples.
+#'
+predict.hsmm <- function(object, newdata, method = "Viterbi", verbose = FALSE, ...) {
+  ans = predict_states_hsmm(model = object, X = newdata, method = method, verbose = verbose, ...)
   ans
 }
 
 
-
 #' Predicts the hidden state sequence from observations
 #'
-#' This function predict the most likely hidden states from observations.
+#' This function predicts the most likely hidden states from observations.
 #' Two methods are implemented:
-#' the first one applies the Viterbi algorithm and predicts the most likely sequence of hidden states,
-#' the second one applies the Forward-Backward algorithm and returns the probabilitiy of each state at each time-point.
+#' \code{"Viterbi"} applies the Viterbi algorithm and predicts the most likely sequence of hidden states,
+#' and \code{"FwBw"} applies the Forward-Backward algorithm and returns the probability of each state at each time-point.
 #'
 #' @param model a \code{hsmm} object. The model used to predict the hidden sequence of states.
-#' @param X a \code{data.frame}. The observations.
+#' @param X a \code{data.frame}. The observation sequences.
+#' This \code{data.frame} must have the following columns:
+#' \code{seq_id} (\code{character}) provides the sequence id, which allows the prediction of hidden states for several sequence simultaneously,
+#' \code{t} (\code{numeric}) provides the timestamp. Time-points must be separated by the same time-step,
+#' \code{...} one column for each variable specified for the model.
+#' Additional columns will be ignored.
 #' @param method a \code{character} specifying the decoding algorithm.
-#'    \code{method = "viterbi"} returns the most likely sequence of hidden states.
-#'    \code{method = "smoothed"} applies the "Forward-Backward" algorithm as described by Guédon, 2003, and returns the "smoothed" (posterior) probability of each state at each time-point.
-#' @param ground_truth (optional) a \code{data.frame}.
+#'    \code{"Viterbi"} returns the most likely sequence of hidden states.
+#'    \code{"FwBw"} applies the "Forward-Backward" algorithm as described by Guédon, 2003, and returns the "smoothed" (posterior) probability of each state at each time-point.
+#' @param ground_truth (optional) a \code{data.frame} with three columns (\code{seq_id, t, state}) providing the ground-truth, i.e. the actual hidden state, for a given (set of) sequence(s) and time-points.
+#' @param trust_in_ground_truth (optional) a double in [0,1] that indicates the reliability of the provided ground-truth. 1 means "full trust", 0 means "no trust". Default value is 0.75.
+#' @param verbose logical. Should the function prints additional information?
 #'
 #' @export
 #' @examples
+#'
+#' library(tidyverse)
+#'
 #' my_model_spec = simple_model_spec
 #' Xsim = simulate_hsmm(my_model_spec, n_state_transitions = 20)
 #' my_model_init = initialize_hsmm(my_model_spec)
-#' viterbi = predict_states_hsmm(model = my_model_init, X = Xsim, method = "viterbi")
+#'
+#' # viterbi decoding
+#' viterbi = predict_states_hsmm(model = my_model_init, X = Xsim, method = "Viterbi")
 #' Xsim$state_viterbi = viterbi$state_seq$state
 #' plot_hsmm_seq(X = Xsim, model = my_model_init)
 #'
-predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = data.frame(), trust_in_ground_truth = 0.75, verbose = FALSE, graphical = FALSE, c_code = "original", ...) {
+#' # forward backward decoding
+#' smoothed = predict_states_hsmm(model = my_model_init, X = Xsim, method = "FwBw")
+#' Xsim$state_smoothed = smoothed$state_seq$state
+#' plot_hsmm_seq(X = Xsim %>% dplyr::select(-state_viterbi), model = my_model_init)
+#'
+#' ggplot(smoothed$state_probs, aes(x = t, y = posterior, col = factor(state))) + geom_line() + scale_color_manual(values = my_model_spec$state_colors)
+#'
+predict_states_hsmm = function(model, X,
+                               method = "Viterbi",
+                               ground_truth = data.frame(),
+                               trust_in_ground_truth = 0.75,
+                               verbose = FALSE) {
 
   # CHECKS
   # model
-  if(class(model) == 'hsmm_spec')stop(stringr::str_c("\n model's class is 'hsmm_spec'.\n",
-                                            "Use the function 'initialize_hsmm' to transform its class to 'hsmm'.\n",
-                                            "This function will provide your model with models and functions that ",
-                                            "will be used to compute the local probability of each state."))
-
-  if(class(model) != "hsmm") stop("model must be of class 'hsmm'.")
-  # check model
-  # TODO
-
+  model = .check_model(model)
+  if(verbose) cat("Model checked\n")
   # check data
   X = .check_data(data = X, model = model)
   X = .augment_data(model = model, X = X, verbose = verbose)
-
+  if(verbose) cat("Data checked\n")
+  # ground_truth
+  if((nrow(ground_truth)>0) && (!all(is.na(ground_truth$state))))
+    ground_truth = .check_ground_truth(ground_truth, model, X)
+  if(verbose) cat("Ground truth checked\n")
 
   # decoding
-  if(method=="viterbi") {
-    ans = .predict_states_hsmm_viterbi(model = model, X = X, ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth, verbose = verbose, graphical = graphical)
-  }else if(method == "smoothed"){
-    ans = .predict_states_hsmm_forward_backward_seq_by_seq(model = model, X = X, ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth, verbose = verbose, graphical = graphical, c_code = c_code)
+  if(method=="Viterbi") {
+    ans = .predict_states_hsmm_viterbi(model = model, X = X,
+                                       ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth,
+                                       verbose = verbose)
+  }else if(method == "FwBw"){
+    ans = .predict_states_hsmm_forward_backward_seq_by_seq(model = model, X = X,
+                                                           ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth,
+                                                           verbose = verbose)
   }else{stop(paste("Unavailable prediction method",method))}
 
   ans
@@ -579,15 +342,10 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
 
 
 #' @useDynLib HiddenSemiMarkov viterbi
-.predict_states_hsmm_viterbi = function(model, X = X, ground_truth = data.frame(), trust_in_ground_truth = 0.75, verbose = FALSE, graphical = FALSE){
-
-  # check model
-  # TODO
-  # check data
-  X = .check_data(data = X, model = model)
-  if(verbose){cat("Data checked \n")}
-  X = .augment_data(model = model, X = X, verbose = verbose)
-  if(nrow(ground_truth) > 0) ground_truth = .check_ground_truth(ground_truth, model, X)
+.predict_states_hsmm_viterbi =
+  function(model, X = X,
+           ground_truth = data.frame(), trust_in_ground_truth = 0.75,
+           verbose = FALSE){
 
   # Number of states
   J = model$J
@@ -595,7 +353,7 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
   N = rle(X$seq_id %>% as.character())$lengths
 
   # add variables N, NN, M, d, D, b + log transform
-  augmented_model = .augment_model(model = model, X = X, ground_truth = ground_truth, log = TRUE, m = -1e300, trust_in_ground_truth = trust_in_ground_truth, verbose = verbose, graphical = graphical)
+  augmented_model = .augment_model(model = model, X = X, ground_truth = ground_truth, log = TRUE, m = -1e300, trust_in_ground_truth = trust_in_ground_truth, verbose = verbose)
   NN = augmented_model$NN
   if(verbose){cat("Model augmented \n")}
   SeqIDs = unique(X$seq_id)
@@ -603,6 +361,7 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
   # Initialization of the output variables
   state_seq = data.frame()
   loglik = data.frame()
+  probabilities = data.frame()
 
   # decode sequence by sequence
   if(verbose){cat(stringr::str_c("Decoding sequences (x/",length(N),"):\t"))}
@@ -632,20 +391,41 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
     # adding results to the output variables
     s = .hsmm_viterbi_backtracking(alpha = alpha, sojourns = psi_time, previous_states = psi_state) # estimated sequence of states
     statehat = tmp$statehat+1
-    state_seq = dplyr::bind_rows(state_seq,
-                          data.frame(seq_id = SeqIDs[i] %>% factor(.,levels = SeqIDs),
-                                     t = X$t[ix],
-                                     state = s,
-                                     state_deprecated = statehat,
-                                     likelihood = alpha[cbind(1:N[i],s)]))
-    loglik = dplyr::bind_rows(loglik,
-                       data.frame(seq_id = SeqIDs[i] %>% factor(.,levels = SeqIDs),
-                                  loglik = max(alpha[N[i],(1:J)])))
+
+    probabilities =
+      dplyr::bind_rows(
+        probabilities,
+        augmented_model$b %>% as.data.frame() %>%
+          dplyr::mutate(seq_id = X$seq_id,
+                        t = X$t) %>%
+          tidyr::pivot_longer(cols = dplyr::starts_with("p_"),
+                              names_to = "state",
+                              names_prefix = "p_",
+                              values_to = "obs_prob") %>%
+          dplyr::mutate(state = state %>% as.numeric)
+      )
+
+    state_seq =
+      dplyr::bind_rows(
+        state_seq,
+        data.frame(seq_id = SeqIDs[i] %>% factor(.,levels = SeqIDs),
+                   t = X$t[ix],
+                   state = s,
+                   #state_deprecated = statehat,
+                   likelihood = alpha[cbind(1:N[i],s)])
+      )
+
+    loglik = dplyr::bind_rows(
+      loglik,
+      data.frame(seq_id = SeqIDs[i] %>% factor(.,levels = SeqIDs),
+                 loglik = max(alpha[N[i],(1:J)]))
+    )
   }
   if(verbose) cat("\n")
 
   ans <- list(state_seq = state_seq,
-              loglik = loglik)
+              loglik = loglik,
+              probabilities = probabilities)
   return(ans)
 }
 
@@ -667,19 +447,13 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
 
 #' @useDynLib HiddenSemiMarkov backward
 #' @useDynLib HiddenSemiMarkov backward_original
-.predict_states_hsmm_forward_backward = function(model, X = X, ground_truth = ground_truth, trust_in_ground_truth = 0.75,  verbose = FALSE, graphical = FALSE, c_code = c("log-prob","original")){
-
-  # check model
-  # TODO
-
-  # check data
-  X = .check_data(data = X, model)
-  if(verbose){cat("Data checked \n")}
-  X = .augment_data(model = model, X = X, verbose = verbose)
-  if((nrow(ground_truth)>0) && (!all(is.na(ground_truth$state)))) ground_truth = .check_ground_truth(ground_truth, model, X)
+.predict_states_hsmm_forward_backward =
+  function(model, X = X,
+           ground_truth = ground_truth, trust_in_ground_truth = 0.75,
+           verbose = FALSE){
 
   # add variables N, NN, M, d, D, b
-  augmented_model = .augment_model(model = model, X = X, ground_truth = ground_truth, log = FALSE, m = -1e300, trust_in_ground_truth = trust_in_ground_truth, graphical = graphical)
+  augmented_model = .augment_model(model = model, X = X, ground_truth = ground_truth, log = FALSE, m = -1e300, trust_in_ground_truth = trust_in_ground_truth)
   if(verbose) cat("Model augmented \n")
 
   # shortcuts
@@ -691,19 +465,18 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
   SeqIDs = unique(X$seq_id)
   nX = sum(N)
 
-  # local distribution on states
-  local = data.frame(
+  # probabilities (obs_prob)
+  probabilities = data.frame(
     seq_id = rep(X$seq_id, J),
     t = rep(X$t, J),
     state = rep(1:J, each = nrow(X)),
-    local = augmented_model$b %>% as.vector(),
+    obs_prob = augmented_model$b %>% as.vector(),
     stringsAsFactors = FALSE
   )
 
   # run the smoothed algorithm on all sequences at once
   if(verbose) cat(stringr::str_c("Decoding sequences (",length(N),")... \n"))
 
-  #algorithm = ifelse(c_code == "original", "backward_original", "backward")
   algorithm = "backward_original"
 
   fwbw_res  = .C(algorithm,
@@ -728,7 +501,7 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
 
   # Check for errors
   if(any(is.nan(fwbw_res$gamma))) { # gamma is the smoothed probability of each state at each time-point
-    stop("NaNs detected in posterior probabilities.")
+    stop("NaNs detected in posterior probabilities.") #
   }
   if(any(fwbw_res$gamma<0)) fwbw_res$gamma = zapsmall(fwbw_res$gamma)
   if(any(fwbw_res$eta<0)) fwbw_res$eta = zapsmall(fwbw_res$eta)
@@ -738,8 +511,9 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
   if(verbose) cat("Formating results \n")
   ##### Format results
   # State probabilities
-  state_probs = local %>%
-    dplyr::mutate(posterior = fwbw_res$gamma)
+  probabilities = probabilities %>%
+    dplyr::mutate(
+      state_prob = fwbw_res$gamma)
   # State sequence
   p = matrix(fwbw_res$gamma, ncol=J)
   s = apply(p, 1, which.max);
@@ -755,23 +529,17 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
   ##### return results
   ans = list(state_seq = state_seq,
              loglik = loglik,
-             state_probs = state_probs,
+             probabilities = probabilities,
              fwbw_res = fwbw_res)
   ans
 }
 
 
 
-.predict_states_hsmm_forward_backward_seq_by_seq = function(model, X = X, ground_truth = data.frame(), trust_in_ground_truth = 0.75,  verbose = FALSE, graphical = FALSE, c_code = "original"){
-
-  # check model
-  # TODO
-  # check data
-  X = .check_data(data = X, model = model)
-  if(verbose){cat("Data checked \n")}
-  X = .augment_data(model = model, X = X, verbose = verbose)
-  if(verbose){cat("Data augmented \n")}
-  if(nrow(ground_truth)>0) ground_truth = .check_ground_truth(ground_truth = ground_truth, model = model, X = X)
+.predict_states_hsmm_forward_backward_seq_by_seq =
+  function(model, X = X,
+           ground_truth = data.frame(), trust_in_ground_truth = 0.75,
+           verbose = FALSE){
 
   # shortcuts
   SeqIDs = unique(X$seq_id)
@@ -779,7 +547,7 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
 
   # initialize output variables
   state_seq = data.frame()
-  state_probs = data.frame()
+  probabilities = data.frame()
   loglik = data.frame()
   sequences_with_error = c()
 
@@ -791,12 +559,12 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
     Xi = X %>% dplyr::filter(seq_id == SeqID) %>% dplyr::arrange(seq_id, t)
     if(nrow(ground_truth)>0) ground_truth_i = ground_truth %>% dplyr::filter(seq_id == SeqID) %>% dplyr::arrange(seq_id, t) else ground_truth_i = data.frame()
 
-    Di = try(.predict_states_hsmm_forward_backward(model = model, X = Xi, ground_truth = ground_truth_i, verbose = FALSE, graphical = graphical, c_code = c_code))
+    Di = try(.predict_states_hsmm_forward_backward(model = model, X = Xi, ground_truth = ground_truth_i, trust_in_ground_truth = trust_in_ground_truth, verbose = FALSE))
     if(class(Di) == "try-error"){
       sequences_with_error = c(sequences_with_error, SeqID)
     }else{
       state_seq = dplyr::bind_rows(state_seq, Di$state_seq)
-      state_probs = dplyr::bind_rows(state_probs, Di$state_probs)
+      probabilities = dplyr::bind_rows(probabilities, Di$probabilities)
       loglik = dplyr::bind_rows(loglik, Di$loglik)
     }
   }
@@ -805,14 +573,36 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
   # return results
   ans = list(state_seq = state_seq,
              loglik = loglik,
-             state_probs = state_probs,
+             probabilities = probabilities,
              sequences_with_error = sequences_with_error)
   ans
 }
 
 
 
-.augment_model = function(model, X, ground_truth, log = FALSE, m = -1e300, trust_in_ground_truth = 0.75, verbose = FALSE, graphical = FALSE){
+#' @export
+.augment_data = function(model, X, verbose = FALSE){
+
+  if(.is_data_augmented(data = X, model = model)) return(X)
+
+  var_names = names(model$marg_em_probs)
+  #M = X %>% select(all_of(var_names)) %>% is.na() %>%  set_colnames(str_c(var_names, "_M")) %>%  set_rownames(rownames(X))
+  #M = M*1
+
+  if(verbose) cat("augmenting the data ...")
+  E_fun = model$augment_data_fun
+  E = E_fun(X)
+  if(verbose) cat("... done\n")
+
+  if(nrow(E) == nrow(X)) augmented_X = cbind(X, E) else augmented_X = X #cbind(X, M)
+  augmented_X
+}
+
+
+.augment_model = function(model, X, ground_truth,
+                          trust_in_ground_truth = 0.75,
+                          log = FALSE, m = -1e300,
+                          verbose = FALSE){
   augmented_model = model
 
   # SEQUENCES start index
@@ -821,8 +611,7 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
   # NN
   augmented_model$NN = cumsum(c(0,augmented_model$N))
   # M
-  augmented_model$M = max(augmented_model$N) #
-  #augmented_model$M = max(c(augmented_model$M, 3700))
+  augmented_model$M = max(c(augmented_model$N, .get_longest_sojourn(model = model)))  #max(augmented_model$N);
 
   # SOJOURN
   # d
@@ -834,19 +623,11 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
 
 
   # OBSERVATION PROBABILITIES
-  augmented_model$b = sapply(1:model$J, function(state) model$compute_obs_probs_fun(model = model, X = X, state = state))
-  if(graphical) matplot(augmented_model$b, type = "l", col = model$state_colors, lty = 1)
-
-  # LOCAL state probabilities
-  # compute_local_state_prob = model$compute_local_state_prob_fun
-  # augmented_model$b = sapply(1:model$J, function(state) compute_local_state_prob(model = model, X = X, state = state))
-  # augmented_model$b = .compute_local_prob_with_KNN_imputation(
-  #   X = X,
-  #   ground_truth = ground_truth,
-  #   model =  model,
-  #   K = 20)
-
+  augmented_model$b = .compute_obs_probs(model = model, X = X)
   if(verbose) cat("joint emission probabilities computed\n")
+  if(any(rowSums(augmented_model$b) == 0)) stop("The joint emission probabilities of some observations have a value of zero for all states (which means that some observations are impossible given the specified model). Please check your model specification and make sure that the observations at all time-point have a non-zero probability in at least one state.")
+  if(any(rowSums(augmented_model$b) < 1e-8)) warning("Some observations are highly unlikely in all states. This may mean that the specified model is not able to capture all of the provided observations.")
+  augmented_model$b = augmented_model$b / rowSums(augmented_model$b )
 
 
   # Helping the decoding with provided ground truth
@@ -879,12 +660,10 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
     augmented_model$b_log = augmented_model$b %>% log()
     augmented_model$b_log[augmented_model$b_log==-Inf]= -1e300
 
-  }else{
-    augmented_model$b = augmented_model$b + 0.01
   }
+
   augmented_model
 }
-
 
 
 .build_d_from_sojourn_dist <- function(model,M) {
@@ -945,7 +724,14 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
   }
 
   # finally, we need to normalize so that the sojourn distribution sums to 1 for each state
-  d = apply(d,2,function(x) x/sum(x))
+  # d = apply(d,2,function(x) x/sum(x)) # if a state has its shorter possible sojourn shorter than the requested M; this will lead to an error. Instead (next line) if the sum of sojourn is zero, we keep zeros
+  d = apply( d, 2,
+             function(x){
+               total = sum(x)
+               if(total > 0) res =  x/sum(x) else res = 0*x
+               res}
+             )
+
   d
 }
 
@@ -955,8 +741,7 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
 ####### FITTING ---------------------
 
 
-
-#' Fit a hidden semi-Markov model to data sequences
+#' Fits a hidden semi-Markov model to data sequences
 #'
 #' This function relies on a EM procedure to fit the model parameters to maximize the likelihood of the decoded hidden state sequence.
 #' It returns a list whose first element is the fitted model (an object of class \code{hsmm}) and whose second elements provides information about the EM procedure (convergence, number of iteration, likelihood).
@@ -965,9 +750,10 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
 #' @param ground_truth (optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known. Default is an empty \code{data.frame}, _i.e._ no ground truth.
 #' @param n_iter (optional) an integer specifiying the maximal number of iterations for the EM-procedure. Default value is 10.
 #' @param rel_tol (optional) a positive double specifying the tolerance at which to stop the EM. If the difference in likelihood (normalized by the total sequences length) between two iterations of the EM is smaller than \code{rel_tol}, then the EM procedure is considered to have converged to a local maximum.
-#' @param lock.transition (optional) a logical. Default is \code{FALSE}. Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.
-#' @param lock.sojourn (optional) a logical. Default is \code{FALSE}. Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
-#' @param lock.emission (optional) a logical. Default is \code{FALSE}. Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
+#' @param lock_emission (optional) a logical. Default is \code{FALSE}. Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
+#' @param lock_transition (optional) a logical. Default is \code{FALSE}. Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.
+#' @param lock_sojourn (optional) a logical. Default is \code{FALSE}. Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
+#' @param use_sojourn_prior (optional) a logical. Default is \code{TRUE}. Specifies if the specified sojourn distributions should be used as a prior when updating the prior distributions at the M-step of the EM.
 #' @param trust_in_ground_truth (optional) a double between 0 and 1 specifying the trust in the ground truth. A value of 0 indicates no trust and is equivalent to not providing ground-truth. A value of 1 indicates full trust and the ground truth will not be modulated by the probability of the values of the observations.
 #' @param alpha (optional) a positive number specifying the strength of the prior TODO: explain better.
 #' @keywords HSMM
@@ -983,26 +769,32 @@ predict_states_hsmm <- function(model, X, method = "viterbi", ground_truth = dat
 #' my_model_fit = fit_hsmm(model = my_model_init, X = Xsim) # the model is fit to the observations.
 #' plot_hsmm_fit_param(model = my_model_fit)
 #'
-#' viterbi_init = predict_states_hsmm(model = my_model_init, X = Xsim, method = "viterbi") # predict the states with the initial model
-#' viterbi_fit = predict_states_hsmm(model = my_model_fit$model, X = Xsim, method = "viterbi") # predict the states with the fit model
+#' viterbi_init = predict_states_hsmm(model = my_model_init, X = Xsim, method = "Viterbi") # predict the states with the initial model
+#' viterbi_fit = predict_states_hsmm(model = my_model_fit$model, X = Xsim, method = "Viterbi") # predict the states with the fit model
 #' Xsim$state_viterbi_init = viterbi_init$state_seq$state
 #' Xsim$state_viterbi_fit = viterbi_fit$state_seq$state
 #' plot_hsmm_seq(X = Xsim, model = my_model_init)
 
 
-fit_hsmm = function(model, X, ground_truth = data.frame(), n_iter = 10, rel_tol = 1/20,
-                    lock.transition = FALSE, lock.sojourn = FALSE, lock.emission = FALSE,
-                    trust_in_ground_truth = 0.75, alpha = 200,
+fit_hsmm = function(model, X,
+                    n_iter = 10, rel_tol = 1/20,
+                    lock_emission = FALSE,
+                    lock_transition = FALSE,
+                    lock_sojourn = FALSE,
+                    use_sojourn_prior = TRUE,
+                    ground_truth = data.frame(),
+                    trust_in_ground_truth = 0.75,
+                    N0 = 1,
                     verbose = FALSE, graphical = FALSE){
 
-  # check/initialize the model
-  # TODO
-  init_model = model # keep the initial model (XXX necessary?)
+  # 1. Checks
+  if(missing(model)) stop("model missing")
+  model = .check_model(model = model)
 
-  # check the data
   if(missing(X)) stop("X missing!")
   X = .check_data(data = X, model = model)
   if(verbose) cat("Data checked\n")
+
   X = .augment_data(model = model, X = X, verbose = verbose)
   if(verbose){cat("Data augmented \n")}
 
@@ -1015,34 +807,65 @@ fit_hsmm = function(model, X, ground_truth = data.frame(), n_iter = 10, rel_tol 
 
   if((trust_in_ground_truth < 0) | (trust_in_ground_truth > 1)) stop("trust_in_ground_truth must be a number between 0 and 1.")
 
-  # initializing the vector which keeps track of the log likelihood
-  ll = c(); message = "Reached n_iter"
+  if(use_sojourn_prior) model$d_prior = .build_d_from_sojourn_dist(model = model, M = max(table(X$seq_id)))
+
+  # 2. EM
+  ll = c(); message = "Reached n_iter" # initializing the vector which keeps track of the log likelihood
   for(it in 1:n_iter){
     if(verbose){cat("i: ",it,"\n")}
 
-    # E-step
+    ###### E-step ###
     if(verbose){cat("\t E-step \n")}
-    smoothed_res = try(.predict_states_hsmm_forward_backward(model = model, X = X, ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth))
+    smoothed_res = try(.predict_states_hsmm_forward_backward(model = model, X = X, ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth),
+                       silent = TRUE)
+
     if(class(smoothed_res) == "try-error"){
-      message = paste0("Error in the E-step. Forward-Backward decoding threw an error at iteration ",it,".") #TODO Model from previous iteration is returned.
-      break()
+      smoothed_res = try(predict_states_hsmm(model = model, X = X, method = "FwBw", ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth), silent = TRUE)
+      prob_seqs = smoothed_res$sequences_with_error
+      ground_truth_tmp = ground_truth
+      for(prob_seq in prob_seqs){
+        vit_seq = predict_states_hsmm(model = model,
+                                      X = X %>% dplyr::filter(seq_id == prob_seq),
+                                      ground_truth = ground_truth %>% dplyr::filter(seq_id == prob_seq),
+                                      trust_in_ground_truth = trust_in_ground_truth ,
+                                      method = "Viterbi")
+        ground_truth_tmp = ground_truth_tmp %>%
+          dplyr::full_join(., vit_seq$state_seq %>% dplyr::select(seq_id, t, state) %>% dplyr::rename(state_vit = state), by = c("seq_id","t")) %>%
+          dplyr::mutate(state = ifelse(!is.na(state_vit),state_vit, state)) %>% dplyr::select(-state_vit)
+      }
+
+      smoothed_res = try(.predict_states_hsmm_forward_backward(model = model, X = X, ground_truth = ground_truth_tmp, trust_in_ground_truth = trust_in_ground_truth))
+
+      if(class(smoothed_res) == "try-error"){
+        message = paste0("Error in the E-step. Forward-Backward decoding threw an error at iteration ",it,".") #TODO Model from previous iteration is returned.
+        break()
+      }
     }
-    p = smoothed_res$state_probs %>% dplyr::select(-local) %>%
-      tidyr::pivot_wider(id_cols = c("seq_id","t"), names_from = "state", values_from = "posterior") %>%
+
+    p = smoothed_res$probabilities %>% dplyr::select(-obs_prob) %>%
+      tidyr::pivot_wider(id_cols = c("seq_id","t"), names_from = "state", values_from = "state_prob") %>%
       dplyr::select(-seq_id, -t) %>% as.matrix(., ncol = model$J, nrow = nrow(X))
     p = p/rowSums(p)
     if(graphical) matplot(p, type = "l", lty = 1, col = model$state_colors)
 
-    # M-step
+
+    ###### M-step ###
     if(verbose){cat("\t M-step \n")}
-    new_model = .re_estimate_parameters(model = model, X = X, p = p,
+    weights = .combine_smoothed_probs_with_ground_truth(p = p, ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth)
+    # we check for un-visited states or rarely visited states
+    state_seq = apply(weights,1,which.max)
+    if(verbose){
+      if(any(table(state_seq)<(nrow(X)/model$J/10))) warning("Some states are rarely visited\n")
+      if(any(table(state_seq)==0)) warning("Some states are never visited\n")
+    }
+
+    new_model = .re_estimate_parameters(model = model, X = X, w = weights,
                                         fwbw_res = smoothed_res$fwbw_res,
-                                        ground_truth = ground_truth,
-                                        lock.transition = lock.transition,
-                                        lock.sojourn = lock.sojourn,
-                                        lock.emission = lock.emission,
-                                        trust_in_ground_truth = trust_in_ground_truth,
-                                        alpha = alpha,
+                                        lock_transition = lock_transition,
+                                        lock_sojourn = lock_sojourn,
+                                        lock_emission = lock_emission,
+                                        use_sojourn_prior = use_sojourn_prior,
+                                        N0 = N0,
                                         verbose = verbose)
     model = new_model
     # Keep iterating?
@@ -1051,40 +874,19 @@ fit_hsmm = function(model, X, ground_truth = data.frame(), n_iter = 10, rel_tol 
     if(it>=2) if( abs(ll[it]-ll[it-1]) < rel_tol*(abs(ll[it])+ abs(ll[it-1]))/2 ){message = "Converged"; break()}
   }
   if(verbose) cat("Model fitted\n")
+  # TODO: update $censored_obs_probs, $marg_em_probs and $censoring_probs
+  model$censored_obs_probs = .re_estimate_censored_obs_prob(model = model, X = X, w = weights, N0 = N0)
+  # model$marg_em_probs = .re_estimate_marginal_emission_probabilities(model = model, X = X, w = weights)
+  # model$censoring_probs = .re_estimate_censoring_probabilities(model = model, X = X, w = weights)
+
   out = list(model = model, fit_param = list(ll = ll, message = message, n_iter = length(ll)))
   out
 }
 
-.re_estimate_parameters = function(model, X,
-                                   p, fwbw_res,
-                                   ground_truth,
-                                   lock.transition = FALSE,
-                                   lock.sojourn = FALSE,
-                                   lock.emission = FALSE,
-                                   trust_in_ground_truth = 0.75, alpha = 200,
-                                   verbose = FALSE){
-  new_model = model
-  if(!lock.emission){
-    if(verbose) cat("updating emission parameters\n")
-    new_model = .re_estimate_emission_parameters(model = new_model, X = X, p = p, ground_truth = ground_truth, trust_in_ground_truth = trust_in_ground_truth, alpha = alpha, verbose = verbose)
-  }
-  if(!lock.transition){
-    if(verbose) cat("updating transition matrix\n")
-    new_model = .re_estimate_transition_probabilities(model = new_model, fwbw_res = fwbw_res)
-  }
-  if(!lock.sojourn){
-    if(verbose) cat("updating sojourn distributions\n")
-    new_model = .re_estimate_sojourn_distributions(model = new_model, fwbw_res = fwbw_res, graphical = verbose)
-  }
-  return(new_model)
-}
-
-.re_estimate_emission_parameters = function(model, X, p, ground_truth = ground_truth, trust_in_ground_truth = 0.75, alpha = 200, verbose = FALSE){
-
+.combine_smoothed_probs_with_ground_truth = function(p , ground_truth , trust_in_ground_truth){
   # initialization of the weights matrix
   weights = p
 
-  #### First, we need to combine the ground_truth with the results from the E-step
   weights_ground_truth = weights
   j = which(!is.na(ground_truth$state))
   if(length(j)>0){
@@ -1094,178 +896,117 @@ fit_hsmm = function(model, X, ground_truth = data.frame(), n_iter = 10, rel_tol 
 
   weights = (1-trust_in_ground_truth) * weights + trust_in_ground_truth * weights_ground_truth
 
-  state_seq = apply(weights,1,which.max)
+  weights
+}
 
-  # Check for un-visited states or rarely visited states
-  if(verbose){
-    if(any(table(state_seq)<(nrow(X)/model$J/10))){warning("Some states are rarely visited\n")}
-    if(any(table(state_seq)==0)){warning("Some states are never visited\n")}
-  }
 
-  #### Then we re-estimate the emission (and missingness) parameters (for observation simulation / variable generation)
+.re_estimate_parameters = function(model, X, w,
+                                   fwbw_res,
+                                   lock_transition = FALSE,
+                                   lock_sojourn = FALSE,
+                                   lock_emission = FALSE,
+                                   use_sojourn_prior = TRUE,
+                                   N0 = 200,
+                                   verbose = FALSE){
   new_model = model
-  new_model$parms.emission = .re_estimate_emission_distributions(model = model, X = X, w = weights)
+  if(!lock_emission){
+    if(verbose) cat("updating observation probabilities\n")
+    new_model = .re_estimate_obs_probs(model = new_model, X = X, w = w, N0 = N0, verbose = verbose)
+  }
+  if(!lock_transition){
+    if(verbose) cat("updating transition matrix\n")
+    new_model = .re_estimate_transition_probabilities(model = new_model, fwbw_res = fwbw_res)
+  }
+  if(!lock_sojourn){
+    if(verbose) cat("updating sojourn distributions\n")
+    new_model = .re_estimate_sojourn_distributions(model = new_model, fwbw_res = fwbw_res, use_sojourn_prior = use_sojourn_prior, graphical = verbose)
+  }
+  return(new_model)
+}
 
 
-  #### Finally, we re-estimate the observation probabilities
-  new_model$obs_probs = .re_estimate_obs_probs(model = model, X = X, w = weights, alpha = alpha)
 
-  ##### Return the new model with updated emission parameters
+.re_estimate_obs_probs = function(model, X, w = w, N0 = 200, verbose = FALSE){
+
+  new_model = model
+  all_levels = .get_all_possible_levels(model = model, with_missing = TRUE, continuous_var_binned = TRUE)
+  var_names = colnames(all_levels)
+  Xb = .cut_continuous_var(model = model, X = X)
+  Xb_with_w = Xb %>%
+    dplyr::select(seq_id, t, all_of(var_names)) %>% # we only keep the seq_id, the time-points and the observations
+    dplyr::full_join(., # we join with the weight, but we need to transform them to long format first
+                     w %>% as.data.frame() %>%
+                       magrittr::set_colnames(1:model$J) %>%
+                       dplyr::mutate(seq_id = X$seq_id, t = X$t) %>%
+                       tidyr::pivot_longer(col = c(-seq_id, -t), names_to = "state", values_to = "p") %>%
+                       dplyr::mutate(state = as.integer(state)),
+                     by = c("seq_id","t"))
+
+  observed_missing = Xb_with_w %>% dplyr::mutate(dplyr::across(tidyselect::all_of(var_names), is.na))
+
+  # we first make a list with all combination of reported variables
+  all_obs_combs = .get_all_possible_combination_of_reported_variables(model)
+  P_values = purrr::map_dfr(.x = all_obs_combs,
+                            .f = function(obs_comb){
+                              obs_names = stringr::str_split(obs_comb, "_") %>% unlist()
+                              contingency_table = Xb_with_w %>%
+                                dplyr::select(tidyselect::all_of(obs_names), state, p) %>%
+                                dplyr::mutate(has_NA = observed_missing %>% dplyr::select(tidyselect::all_of(obs_names)) %>% apply(.,1,any)) %>%
+                                dplyr::filter(!has_NA) %>% dplyr::select(-has_NA) %>%
+                                dplyr::group_by(.dots = c("state", obs_names)) %>%
+                                dplyr::summarise(counts = sum(p), .groups = "drop") %>%
+                                dplyr::group_by(state) %>%
+                                dplyr::mutate(N = sum(counts)) %>%
+                                dplyr::ungroup()
+                              contingency_table[,setdiff(var_names, obs_names)] = NA
+                              contingency_table = contingency_table %>% dplyr::select(state, dplyr::all_of(var_names), counts, N)
+                              contingency_table
+                            })
+
+
+
+  new_model$obs_probs = model$obs_probs %>%
+    dplyr::left_join(., P_values, by = c("state", var_names)) %>%
+    dplyr::mutate(counts = counts %>% replace_na(0),
+                  N = N %>% replace_na(0),
+                  p = (p0*N0 + counts)/(N0 + N),
+                  p = p %>% replace_na(1)) %>%
+    dplyr::select(-counts, - N)
+
+  new_model$b =  new_model$obs_probs %>% dplyr::select(-p0) %>%
+    tidyr::pivot_wider(names_from = state, values_from = p, names_prefix = "p_")
+
   new_model
 }
 
-.re_estimate_emission_distributions = function(model = model, X = X, w = w){
-
-  # keeping only the observations (= variables for which we have parms.emission)
-  obs_names = names(model$parms.emission)
-  obs = X %>% dplyr::select(dplyr::all_of(obs_names)) %>% as.data.frame()
-
-  new_parem = .compute_new_em_parms(obs = obs, w = w, parem = model$parms.emission)
-  new_parem
-}
 
 
-#library(SDMTools)
+.get_all_possible_combination_of_reported_variables = function(model){
 
-.compute_new_em_parms = function(obs, w, parem){
-  new.parem = parem
-  for(i in 1:length(parem)){
-    #cat(i, "\n")
-    if(new.parem[[i]]$type == "norm"){
-      # weighted mean
-      x_bar = sapply(1:ncol(w),function(state) weighted.mean(obs[,i],w = w[,state], na.rm = TRUE))
-      x_bar[is.na(x_bar)] = parem[[i]]$params$mean[is.na(x_bar)]
-      # weighted sd
-      # sd_bar = sapply(1:ncol(w),function(state) wt.sd(obs[,i],w = w[,state]))
-      sd_bar = sapply(1:ncol(w), function(state) sqrt( sum( w[,state]  * (obs[,i] - x_bar[state])^2)))
-      sd_bar[is.na(sd_bar)] = parem[[i]]$params$sd[is.na(sd_bar)]
-      # variables and hyper-parameters
-      n = apply(w,2,sum)
-      mu_0 = parem[[i]]$params$mu_0
-      n0 = parem[[i]]$params$n0
-      new_n0 = n + n0
-      new_alpha = parem[[i]]$params$alpha + n/2
-      new_beta = parem[[i]]$params$beta + (n-1)/2 * sd_bar^2 + n * n0 / (n + n0) * (x_bar - mu_0)^2 / 2
+  all_levels = .get_all_possible_levels(model = model, with_missing = TRUE, continuous_var_binned = TRUE)
+  all_levels_no_missing = .get_all_possible_levels(model = model, with_missing = FALSE, continuous_var_binned = TRUE)
 
-      # posteriors
-      new_mean = (n0 * mu_0 + n*x_bar)/(n0 + n)
-      new_sd = sqrt( new_beta * (new_n0 + 1) / (new_n0 * new_alpha) )
-
-      # updating the model
-      new.parem[[i]]$params$mean = new_mean
-      new.parem[[i]]$params$sd = new_sd
-    }else if(new.parem[[i]]$type == "binom"){
-
-      # observed proportions
-      obs_prob = sapply(1:ncol(w),function(state) weighted.mean(obs[,i]/(parem[[i]]$param$size[state]),w = w[,state], na.rm = TRUE)) # would be better with an EM approach, but it's good enough for now
-      obs_prob[is.na(obs_prob)] = parem[[i]]$params$prob[is.na(obs_prob)]
-      n = apply(w,2,sum)
-      obs_successes = n*obs_prob
-      # hyper-parameters
-      new_alpha = parem[[i]]$params$alpha + obs_successes
-      new_beta = parem[[i]]$params$beta + n * parem[[i]]$param$size  - obs_successes
-
-      # posterior
-      new_prob = new_alpha / (new_alpha + new_beta)
-
-      # update the model
-      new.parem[[i]]$params$prob = new_prob
-
-    }else if(new.parem[[i]]$type == "non-par"){
-      # observed proportions
-      obs_probs = sapply(
-        1:ncol(w), # for each state
-        function(state) {
-          tt = parem[[i]]$params$probs[,state]
-          j = which(w[,state]>0)
-          if(length(j)>0) tt = table(sample(obs[j,i], prob = w[j,state], size = nrow(obs), replace = TRUE))
-          tt = tt/sum(tt)
-          return(t(tt))
-        }
-      )
-
-      # variables
-      n = apply(w,2,sum)
-      n0 = parem[[i]]$params$n0
-      probs_0 = parem[[i]]$params$probs_0
-      # posterior
-      new_probs = n0 * probs_0 + t(n * t(obs_probs))
-      new_probs = t(t(new_probs)/colSums(new_probs))
-
-      # updating the model
-      new.parem[[i]]$params$probs = new_probs
-    }else{ stop("This type of distribution has not been handled yet")}
-    # we also need to impute the missingness of this variable
-    # TODO
-    new_missing_prob = sapply(1:ncol(w), function(state) weighted.mean(is.na(obs[,i]), w = w[,state], na.rm = FALSE))
-    new_missing_prob[is.na(new_missing_prob)] = parem[[i]]$missing_prob[is.na(new_missing_prob)]
-    new.parem[[i]]$missing_prob = new_missing_prob # %>% pmin(.,0.9999) %>% pmax(.,0.0001)
-  }
-  return(new.parem)
-}
+  var_names = colnames(all_levels)
+  vars_with_missing_values = var_names[apply(all_levels, 2, function(x) any(is.na(x)))]
+  vars_never_missing = var_names %>% setdiff(vars_with_missing_values)
 
 
-.re_estimate_obs_probs = function(model, X, w, alpha = 200){
-
-  # first we need to format the data, i.e. have one columns specifiying the state and another giving the weight for that state
-  Xx = X[rep(1:nrow(X), model$J),]
-  Xx$state = rep(1:model$J, each = nrow(X))
-  Xx$w = as.vector(w)
-
-  # then check the observed probabilities
-  obs_prob = .compute_observed_probabilities(model = model, X = Xx, verbose = verbose)
-  #print(obs_prob %>%  dplyr::arrange(state))
-
-
-  # and combine them with the prior distributions via conjugate prior formula for categorical variables
-  P0 = model$obs_probs_0 %>% dplyr::select(-p_n) %>%  dplyr::rename(p0 = p)
-  PX = obs_prob %>% dplyr::rename(px = p)
-  new_obs_probs = dplyr::full_join(P0, PX, by = intersect(colnames(P0), colnames(PX)),
-                            na_matches = "na") %>%
-    dplyr::select(-p_n,-p_max) %>%
-    dplyr::mutate(p0 = p0 %>% tidyr::replace_na(0),
-           px = px %>% tidyr::replace_na(0),
-           n = n %>% tidyr::replace_na(0),
-           alpha = alpha) %>%
-    dplyr::group_by(state) %>%
-    dplyr::mutate(Tot = sum(n, na.rm = TRUE)) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate(p = (p0 * alpha + Tot * px)/(alpha + Tot)) %>%
-    dplyr::group_by(state) %>%
-    dplyr::mutate(p_max = max(p),
-           p_n = p / p_max) %>%
-    dplyr::ungroup()
-
-  new_obs_probs
-}
-
-
-
-
-.get_all_possible_levels = function(model = model, with_missing = TRUE, continuous_var_binned = FALSE){
-  lv = list()
-  for(var in names(model$parms.emission)){
-    if(model$parms.emission[[var]]$type == "non-par") lv[[var]] = model$parms.emission[[var]]$params$values
-    if(model$parms.emission[[var]]$type == "binom") lv[[var]] = 0:max(model$parms.emission[[var]]$params$size)
-    if(model$parms.emission[[var]]$type == "norm") lv[[var]] = model$parms.emission[[var]]$breaks[!is.infinite(model$parms.emission[[var]]$breaks)]
-    if(continuous_var_binned & (model$parms.emission[[var]]$type == "norm")) lv[[var]] = levels(cut(lv[[var]], breaks = model$parms.emission[[var]]$breaks))
-    if(with_missing) lv[[var]] = c(lv[[var]], NA)
-  }
-  if(length(model$augment_data_fun(get_var_names_only = TRUE))>0){
-    augm_var = model$augment_data_fun(get_var_names_only = TRUE)
-    augm_var_val = model$augment_data_fun(get_var_types_only = TRUE)
-    for(var in augm_var){
-      if(augm_var_val[[var]]$type == "cat") lv[[var]] = augm_var_val[[var]]$values
-      if(augm_var_val[[var]]$type != "cat") lv[[var]] = levels(cut(seq(0,1,by = 0.2), breaks = c(-Inf, seq(0.2,0.8,by = 0.2),Inf)))
+  start_l = ifelse(length(vars_never_missing) == 0, 1, 0)
+  all_var_combs = c()
+  for(l in start_l:length(vars_with_missing_values)){ # the size of the set of observable variables is length(var_never_missing) + l
+    var_combinations = combn(x = vars_with_missing_values, m = l)
+    var_combinations = rbind(var_combinations,
+                             matrix(vars_never_missing, ncol = ncol(var_combinations), nrow = length(vars_never_missing), byrow = FALSE))
+    for(k in 1:ncol(var_combinations)){
+      this_var_combination = stringr::str_c(var_names[var_names %in% var_combinations[,k]], collapse = "_")
+      all_var_combs = c(all_var_combs, this_var_combination)
     }
   }
-  max_n = max(lengths(lv))
-  all_levels = data.frame(row.names = 1:max_n, stringsAsFactors = FALSE)
-  for(var in names(lv)) all_levels = cbind(all_levels, var = rep(lv[[var]],max_n)[1:max_n])
-  colnames(all_levels) = names(lv)
-  all_levels = .check_types_and_values(data = all_levels, parem = model$parms.emission, continuous_var_binned = continuous_var_binned)
-  all_levels
+  all_var_combs
 }
+
+
+
 
 
 
@@ -1279,17 +1020,26 @@ fit_hsmm = function(model, X, ground_truth = data.frame(), n_iter = 10, rel_tol 
 }
 
 
-.re_estimate_sojourn_distributions = function(model, fwbw_res, graphical = FALSE){
+.re_estimate_sojourn_distributions = function(model, fwbw_res, use_sojourn_prior = TRUE, graphical = FALSE){
 
   new_model = model
   # shortcuts
   sojourn_distribution = model$sojourn$type
 
   # the smoothed (forward/backward) algorithm returns a new "d" matrix
-  # which needs to be normalized such that the density distribution of runlength for any state sums to 1.
-  ds = fwbw_res$eta %>% matrix(.,ncol = model$J) %>% apply(.,2,function(x) x/sum(x))
-  ds_i = ds
-  M = nrow(ds)
+  ds = fwbw_res$eta %>% matrix(.,ncol = model$J)
+  # if we want to use Bayesian updating, we need to multiply this new d matrix by the prior.
+  if(use_sojourn_prior){
+    d_prior = model$d_prior
+    if(nrow(d_prior) < nrow(ds)) d_prior = rbind(d_prior, matrix(0, nrow = nrow(ds) - nrow(d_prior), ncol = model$J))
+    if(nrow(d_prior) > nrow(ds)) d_prior = d_prior[1:nrow(ds),]
+    ds = ds * d_prior
+  }
+
+  # This matrix now needs to be normalized such that the sojourn density distribution sums to 1 for any state.
+  ds = ds %>% apply(.,2,function(x) x/sum(x))
+  ds_i = ds # we keep the "initial" ds
+  M = nrow(ds) # max sojourn duration
 
   # We can re-use this ds as is if the sojourn distribution family is non-parametric.
   # If the sojourn distribution is defined as a parametric distribution, we can use ds to estimate the parameters of these distributions
@@ -1301,8 +1051,10 @@ fit_hsmm = function(model, X, ground_truth = data.frame(), n_iter = 10, rel_tol 
     ksmooth.thresh = 1e-20 #this is a threshold for which d(u) values to use - if we throw too many weights in the default density() seems to work quite poorly
     for(i in 1:model$J){
       u = which(ds[,i]>ksmooth.thresh)
+      if(length(u)>1){
       ds[,i] = density(u, weights = ds[u,i], from = 1, n = M) %>% approx(.,xout=1:nrow(ds)) %>% pluck("y") %>% tidyr::replace_na(0)
       ds[,i] = ds[,i]/sum(ds[,i])
+      }
     }
     new_model$sojourn$d = ds
 
@@ -1384,6 +1136,45 @@ fit_hsmm = function(model, X, ground_truth = data.frame(), n_iter = 10, rel_tol 
 }
 
 
+.re_estimate_censored_obs_prob = function(model, X, w, N0){
+
+  #all_levels = .get_all_possible_levels(model = model, with_missing = TRUE, continuous_var_binned = TRUE)
+  var_names = names(model$marg_em_probs)
+  Xb = .cut_continuous_var(model = model, X = X)
+  Xb_with_w = Xb %>%
+    dplyr::select(seq_id, t, all_of(var_names)) %>% # we only keep the seq_id, the time-points and the observations
+    dplyr::full_join(., # we join with the weight, but we need to transform them to long format first
+                     w %>% as.data.frame() %>%
+                       magrittr::set_colnames(1:model$J) %>%
+                       dplyr::mutate(seq_id = X$seq_id, t = X$t) %>%
+                       tidyr::pivot_longer(col = c(-seq_id, -t), names_to = "state", values_to = "p") %>%
+                       dplyr::mutate(state = as.integer(state)),
+                     by = c("seq_id","t"))
+
+  observed_censored_obs_probs = Xb_with_w %>%
+    dplyr::group_by(.dots = c("state", var_names)) %>%
+    dplyr::summarize(counts = sum(p), .groups = "drop")
+
+  observed_N = observed_censored_obs_probs %>%
+    dplyr::select(state, counts) %>%
+    dplyr::group_by(state) %>%
+    dplyr::summarize(N = sum(counts), .groups = "drop")
+
+  censored_obs_probs = model$censored_obs_probs %>%
+    dplyr::left_join(., observed_N, by = "state") %>%
+    dplyr::left_join(.,
+                     observed_censored_obs_probs,
+                     by = c("state", var_names)) %>%
+    dplyr::mutate(counts = counts %>% tidyr::replace_na(0),
+                  p = (p0 * N0 + counts)/(N0 + N)) %>%
+    dplyr::select(state, dplyr::all_of(var_names), p, p0)
+
+  censored_obs_probs
+}
+
+
+
+
 
 ####### SUMMARY ---------------------
 
@@ -1400,7 +1191,8 @@ summary_hsmm <- function(model) {
   cat("\nSojourn distribution parameters = \n")
   print(model$sojourn)
   cat("\nEmission distribution parameters = \n")
-  print(model$parms.emission)
+  print(model$marg_em_probs)
 }
+
 
 

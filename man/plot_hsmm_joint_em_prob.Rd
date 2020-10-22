@@ -2,7 +2,7 @@
 % Please edit documentation in R/plotting_functions.R
 \name{plot_hsmm_joint_em_prob}
 \alias{plot_hsmm_joint_em_prob}
-\title{Visualizes the joint emission probabilities of a hidden semi-Marvov model.}
+\title{Visualizes the joint emission probabilities (2x2) of a hidden semi-Markov model.}
 \usage{
 plot_hsmm_joint_em_prob(model, title = "")
 }
@@ -15,5 +15,5 @@ plot_hsmm_joint_em_prob(model, title = "")
 a ggplot object.
 }
 \description{
-Visualizes the joint emission probabilities of a hidden semi-Marvov model.
+Visualizes the joint emission probabilities (2x2) of a hidden semi-Markov model.
 }

@@ -1,0 +1,436 @@
+---
+title: "Introduction to the `HiddenSemiMarkov` package"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{HiddenSemiMarkov}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(HiddenSemiMarkov)
+library(tidyverse)
+```
+
+```{r hidden-setup, echo = FALSE}
+
+library(kableExtra)
+
+```
+
+
+
+# Introduction
+
+
+# Package main functions
+
+* `specify_hsmm()`: Model specification. Takes as input the number of states (`J`), the model graph and transition probabilities (`trans`), the sojourn distribution (`sojourn`), the emission parameter (`emission.par`). Optional inputs include a data augmentation function (`augment_data_fun`), names and colors associated with each states (`state_names` and `state_colors`). Returns a list of class `hsmm`. 
+
+* `simulate_hsmm()`: Simulate data given a `hsmm` model. The length or number of state transition can be specified as input. See section \@ref(pkg-spec) for details.
+
+* `predict_hsmm_states()`: Sequence decoding. Takes as input a `hsmm` model and one or more sequences of observations (`X`) and returns the decoded state sequence. Two methods are available for the decoding:
+
+    * Viterbi algorithm (`method = "viterbi"`): returns the most likely sequence of state given the whole sequence of the observations.
+    
+    * Forward-Backward algorithm (`method = "smoothed"`): returns the probability of each state at each time-point given the whole sequence of observation. 
+    
+    
+* `fit_hsmm()`: Fits an `hsmm` model to increase the likelihood of decoding a provided sequence. This function uses on an EM approach.
+
+    * At the E-step, the sequence is decoded with the current model parameters (`init`, `transition`, `sojourn`, `emission.par`, `local_state_prob_models`) with the Forward-Backward algorithm.
+    
+    * At the M-step, the model parameters are re-estimated based on the posterior state probabilities returned in the E-steps.
+    
+These functions are demonstrated in the sections below with a simple toy model.
+
+## Visualization functions
+
+The package also comes with a series of visualization functions
+
+* `plot_hsmm_seq()` plots a sequence of observations. If states are provided with the sequence, the state sequences are plotted on top of the observations. Several state sequences can be provided (e.g. the ground truth and the decoded state sequence). If two state sequences are provided, the function automatically displays the difference between the two state sequence in addition to the two state sequences.
+
+* `plot_hsmm_em_par()` plots the marginal distributions $\Pr(X_k|S_j)$ of each variable in each state. The transparency of the histograms is proportional to the probability for this variable to be observed in a given state.
+
+* `plot_hsmm_sojourn_dist()` plots the sojourn distributions of each states.
+
+* `plot_hsmm_transitions()` plots the model graph with edges width proportional to the transition probabilities between two states.
+
+See sections below for examples of these functions.
+
+## Manual labelling / validation of decoding shiny app.
+
+Finally, the function `label_sequences()` calls an interactive app that opens in a web browser and can be used to add manual labels to sequences. It can also be used to validate an existing decoding (_e.g._ results from `predict_hsmm_states()`).
+
+
+# Example 1: a simple 2-state, 3-variable model with no missing data.
+
+## Model specification
+
+The specification of a hidden semi-Markov model requires the number of state, the initial probabilities (i.e. the probability for each state to start a state sequence), the transition probabilities (i.e. the probabilities to switch from one state to another), the sojourn distributions for each state (parametric or non-parametric distributions) and the marginal emission probabilities (i.e. the distributions of values of each variables in each state). Note that, while we do not specify joint distributions for the different values, potential within-state dependencies between variables can be learned at the initialization step if labeled data is provided or when fitting the model to sequences.
+
+
+
+To demonstrate how a model is specified, a toy model is used here. The parameters are temporarily be stored in a list.
+
+```{r toy-list}
+toy = list()
+```
+
+__States__
+
+`J` is the number of states of the model. We define a model with two hidden states.
+
+```{r toy-J}
+toy$J = 2
+```
+
+These states can be names, _e.g._ "A" and "B", and be allocated specific colors.
+
+```{r toy-states}
+toy$state_names = c("A","B")
+toy$state_colors = c("seagreen1","slategray")
+```
+
+
+__Initial and transition probabilities__
+
+Initial probabilities are defined as a vector of length `J`.
+
+```{r toy-init-prob}
+toy$init = c(0.9, 0.1)
+```
+
+Transition probabilities are defined as a (`J` x `J`) matrix where the rows are the `'from'` states and the columns are the `'to'` states. Rows must sum to 1 and the diagonal must be filled with zeros as the probabilities of staying in a given state is defined in the sojourn distributions.
+
+
+```{r toy-trans-prob}
+toy$trans = matrix(c(0,1,1,0), nrow = toy$J, ncol = toy$J)
+```
+
+__Sojourn distributions__
+
+Sojourn distributions can be defined as parametric or non-parametric distributions.
+Supported distributions are provided in table \@ref(tab:toy-available-sojourn).
+
+```{r toy-available-sojourn, echo=FALSE}
+
+available_sojourn_dist() %>% 
+  kable(format = "html", 
+        booktabs = T,
+        caption = "Supported sojourn distributions",
+        linesep = "") 
+
+```
+
+Sojourn distributions are specified by a list with a `'type'` element whose value is a string specifying the type of sojourn distributions. The other elements of the list specify the parameters of the distributions and their name depends on the distribution type chose. If the sojourn is specified as a non-parametric distribution, the other element in the list is a matrix `d` of dimension (`M` x `J`) where `M` is the length of the longest sojourn.
+
+Here, we define the sojourn distributions of the toy model as `gamma` distributions.
+
+```{r toy-sojourn}
+
+toy$sojourn = list(type = "gamma",
+                   shape = c(2,10),
+                   scale = c(10,3))
+
+```
+
+__Emission parameters__
+
+Because we wanted the package to be able to decode time-series with variables of different types (continuous, discrete, binary and categorical), the emission probabilities are provided independently for each variable. This makes the assumption that the variables are independent within a given state. However, potential within-state dependencies may be learned when fitting the model to data (see \@ref(pkg-fit)).
+
+The marginal emission distributions $\Pr(X_k|S_j)$ can be described as parametric (continuous or discrete) or non-parametric (e.g. for categorical variables). Currently, the package supports normal (`norm`), binomial (`binom`) and non-parametric (`non-par`) distributions.
+
+For our toy model, we define three variables, each of a different distribution family.
+
+```{r pck-em-dist}
+
+toy$emission_dist = list(
+  var1 = list(
+    type = "norm",
+    params = list(
+      mean = c(0,1),
+      sd = c(0.4,0.2)
+    )
+  ),
+  var2 = list(
+    type = "binom",
+    params = list(
+      size = rep(1,2),
+      prob = c(0.2,0.8)
+    )
+  ),
+  var3 = list(
+    type = "non-par",
+    params = list(
+      values = c("a","b","c","d"),
+      probs = matrix(c(0.7,0.1,0.1,0.1,
+                       1/4,1/4,1/4,1/4), 4,toy$J)
+    )
+  )
+)
+
+```
+
+
+__Model specification__
+
+We can now specify the model with the `specify_hsmm()` function.
+
+```{r toy-specification}
+
+toy_hsmm = specify_hsmm(J = toy$J,
+                        state_names = toy$state_names,
+                        state_colors = toy$state_colors,
+                        init = toy$init,
+                        transition = toy$trans,
+                        sojourn = toy$sojourn,
+                        marg_em_probs = toy$emission_dist)
+
+class(toy_hsmm)
+
+```
+
+
+## Sequence simulation
+
+Now that we have specified our model, we can simulate sequences with the `simulate_hsmm()` function.
+
+```{r toy-simulate}
+
+X = simulate_hsmm(model = toy_hsmm, n_state_transitions = 20)
+
+```
+
+We can visualize the simulated sequence with the `plot_hsmm_seq()` function.
+
+```{r toy-sim-data-viz}
+
+plot_hsmm_seq(X = X, model = toy_hsmm, 
+              add_state_color_legend = TRUE, 
+              title = "My first simulated sequence")
+
+
+plot_hsmm_seq(X = X, model = toy_hsmm, 
+              compact_view = TRUE, 
+              title = "My first simulated sequence")
+
+```
+
+## Sequence decoding
+
+There are two methods available to infer the sequence of hidden state: the Viterbi method, which provides the most likely hidden state sequence, and the Forward-Backward method, which provides the state probabilities at each time-point.
+
+Both methods are available in the `predict_states_hsmm()` function, accessible with the `method` argument.
+
+
+`predict_hsmm_states()` returns a list with two (`viterbi`) or three (`smoothed`) tables: 
+
+1. `state_seq` a data.frame with three columns: 
+
+    * `seq_id` (the ID of the sequences, same as in `X`), 
+
+    * `t` the time-point (same as in `X`) and 
+
+    * `state` the most probable hidden state at that time-points. 
+
+2. `loglik` a data.frame with two columns:
+
+    *  `seq_id`
+
+    * `ll` the log-likelihood of the decoding for that sequence
+
+3. `probabilities`, a table of 4 (Viterbi) or 5 (Forward-Backward) columns:
+
+    * `seq_id`
+
+    * `t`
+
+    * `state`
+
+    * `obs_prob`: the probability of the observations in that state (i.e. $\Pr(X_i| S_j)$)
+
+    * `state_prob`: the state probability given the whole observation sequence (i.e. $\Pr(S_j| X)$)
+    
+
+```{r toy-seq-decoding}
+
+viterbi = predict_states_hsmm(X = X, model = toy_hsmm, method = "Viterbi")
+
+fwbw = predict_states_hsmm(X = X, model = toy_hsmm, method = "FwBw")
+
+```
+
+
+## Fitting a HSMM model
+
+```{r toy-fit}
+
+fit_results = fit_hsmm(X = X, model = toy_hsmm)
+
+plot_hsmm_fit_status(fit_output = fit_results)
+  
+```
+
+```{r toy-fit-comparison}
+
+plot_hsmm_sojourn_dist(model = toy_hsmm)
+plot_hsmm_sojourn_dist(model = fit_results$model)
+
+plot_hsmm_marg_dist(model = toy_hsmm)
+plot_hsmm_marg_dist(model = fit_results$model)
+
+
+```
+
+```{r}
+
+DT <- data.table(ID=c(1, 2, 1:3), A=c(NA, NA, 1, NA, 3), B=c(4, 5, NA, 5, 6), C=c(7, 8, NA, NA, 9))
+DT
+
+DT$t = 1:nrow(DT)
+
+ref <- data.table(ID=c(1, 1:3), A=c(1, 1:3), B=c(1, 4:6), C=c(1, 7, NA, 9), VAL=c(111, 101:103), VAL2=c(112, 104:106))
+ref
+
+
+cols <- c("ID","A", "B", "C")
+newcols <- c("VAL", "VAL2")
+DT[, grp := paste(names(.SD)[sapply(.SD, Negate(is.na))], collapse="_"),
+    by=seq_len(nrow(DT)),
+    .SDcols=cols]
+
+setnames(DT[,
+    ref[.SD, on=strsplit(.BY$grp, split="_")[[1L]], 
+        c(paste0("i.", cols), paste0("x.",newcols)), with=FALSE], 
+    by=.(grp)][,-1L], 
+    c(cols, newcols))[]
+
+```
+
+
+
+
+
+
+
+
+## Non-parametric sojourn distributions
+
+```{r toy-sojourn-d}
+
+toy2 = toy
+toy2$sojourn = list(
+  type = "nonparametric",
+  d = cbind(rep(1/100, 100), dgamma(1:100, shape = 20, scale = 2))
+)
+
+```
+
+
+```{r toy2-specify}
+
+
+toy2_hsmm = specify_hsmm(J = toy$J,
+                        state_names = toy$state_names,
+                        state_colors = toy$state_colors,
+                        init = toy$init,
+                        transition = toy$trans,
+                        sojourn = toy2$sojourn,
+                        marg_em_probs = toy$emission_dist)
+
+
+X = simulate_hsmm(model = toy2_hsmm, n_state_transitions = 30)
+vit = predict_states_hsmm(model = toy2_hsmm, X = X, method = "Viterbi")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r toy2-beta}
+
+
+toy2_hsmm = specify_hsmm(
+  J = toy_hsmm$J,
+  state_names = toy_hsmm$state_names,
+  state_colors = toy_hsmm$state_colors,
+  init = toy_hsmm$init,
+  transition = toy_hsmm$transition,
+  sojourn = toy_hsmm$sojourn,
+  marg_em_probs = list(
+    betavar = list(
+      type = "beta",
+      params = list(
+        shape1 = c(1,3),
+        shape2 = c(3,1)
+      )
+    )
+  ),
+  verbose = TRUE
+)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+__Missing data probabilities__ (optional) 
+
+
+This package was primarily implemented to decode digital-health time-series and because such time-series often contain a lot of missing data, this package provides the opportunity to model the data missingness. 
+
+This package makes the assumption that a variable may be missing because the whole data-point is missing with probability $p_j$ or because this specific variable is missing with probability $q_j$. Both of these probabilities can be specified for each state $j$.
+
+For example:
+
+```{r pck-missing}
+
+toy$censoring_probs = list(
+  p = c(0,0.5),
+  q = rbind(c(0.4,0),
+            c(0.5,0),
+            c(0.6,0))
+)
+
+```
+
+
+
+
+

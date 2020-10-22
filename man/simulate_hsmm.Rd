@@ -17,24 +17,27 @@ simulate_hsmm(
 )
 }
 \arguments{
-\item{model}{a object of class \code{hsmm_spec} or \code{hsmm}.}
+\item{model}{a object of class or \code{hsmm}.}
 
-\item{seq_id}{(optional) a character specifying the name of the sequence to simulate.}
+\item{seq_id}{(optional) a \code{character} specifying the name of the sequence to simulate.}
 
-\item{n_state_transitions}{(optional) XXX}
+\item{n_state_transitions}{(optional) an \code{integer} specifying the number of state transitions that should be simulated.}
 
-\item{n_timepoints}{(optional) XXX}
+\item{n_timepoints}{(optional) an \code{integer} specifying the number of time-point to simulate.
+One can either specify \code{n_state_transitions} or \code{n_timepoints}.
+If both are specified, \code{n_timepoints} is ignored and a sequence with \code{n_state_transitions} is specified.}
 
-\item{seed}{(optional) XXX}
+\item{seed}{(optional) the seed for the random generator. Allows to reproduce a simulated sequence.}
 
-\item{all_states}{(optional) XXX}
+\item{all_states}{(optional) a \code{logical} specifying if all states should be present in the simulated sequence.
+By default, this option is \code{FALSE}. When \code{TRUE}, the sequence may be longer than the specified length via \code{n_state_transitions} or \code{n_timepoints}}
 
-\item{min_tp_per_state}{(optional) XXX}
+\item{min_tp_per_state}{(optional) if \code{all_states == TRUE}, this option can be used to specify the minimum number of time-point in each state.}
 
-\item{mult_seq_allowed}{(optional) XXX}
+\item{mult_seq_allowed}{(optional) if \code{all_states == TRUE}, this option can be used to specify if representation of all states in the simulated sequence can be achieved by simulated several sequences or by simulating a single sequence.}
 }
 \value{
-A data.frame with the following columns: TODO xxxx
+A \code{data.frame} with the following columns: \code{seq_id}, the identifier of the sequence, \code{t} the time-stamp, \code{state} the hidden state and one additional column for each specified variable.
 }
 \description{
 This function returns a \code{data.frame} with a simulated state sequence and observations.
@@ -42,43 +45,8 @@ The length of the simulated sequence can be specified either as a number of stat
 Each row of the returned \code{data.frame} is a time-point and the columns specify the sequence id, the time-point, the state and the values of the observation. Each variable has its own column.
 }
 \examples{
-my_model_spec = specify_hsmm(
-   J = 2,
-   init = c(1,0),
-   transition = matrix(c(0,1,1,0),2,2),
-   sojourn = list(type = "gamma", shape = c(2,10), scale = c(10,3)),
-   parms.emission = list(
-       var1 = list(
-           type = "norm",
-           params = list(
-               mean = c(0,1),
-               sd = c(0.3,0.2)
-               ),
-           missing_prob = c(0.6,0.1)
-           ),
-     var2 = list(
-         type = "binom",
-         params = list(
-             size = rep(1,2),
-             prob = c(0.2,0.8)
-             ),
-         missing_prob = c(0,0)
-         ),
-     var3 = list(
-         type = "non-par",
-         params = list(
-             values = c("a","b","c","d"),
-             probs = matrix(c(0.7,0.1,0.1,0.1,
-                            1/4,1/4,1/4,1/4), 4,2)
-           ),
-         missing_prob = c(0.5,0.5)
-         )
-     ),
-   state_names = c("A","B"),
-   state_colors = c("seagreen1","lightcoral")
-)
-class(my_model_spec)
-Xsim = simulate_hsmm(model = my_model_spec)
+my_model = simple_model_spec
+Xsim = simulate_hsmm(model = my_model)
 plot_hsmm_seq(model = my_model_spec, X = Xsim)
 }
 \keyword{HSMM}

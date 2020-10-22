@@ -7,38 +7,56 @@
 predict_states_hsmm(
   model,
   X,
-  method = "viterbi",
+  method = "Viterbi",
   ground_truth = data.frame(),
   trust_in_ground_truth = 0.75,
-  verbose = FALSE,
-  graphical = FALSE,
-  c_code = "original",
-  ...
+  verbose = FALSE
 )
 }
 \arguments{
 \item{model}{a \code{hsmm} object. The model used to predict the hidden sequence of states.}
 
-\item{X}{a \code{data.frame}. The observations.}
+\item{X}{a \code{data.frame}. The observation sequences.
+This \code{data.frame} must have the following columns:
+\code{seq_id} (\code{character}) provides the sequence id, which allows the prediction of hidden states for several sequence simultaneously,
+\code{t} (\code{numeric}) provides the timestamp. Time-points must be separated by the same time-step,
+\code{...} one column for each variable specified for the model.
+Additional columns will be ignored.}
 
 \item{method}{a \code{character} specifying the decoding algorithm.
-\code{method = "viterbi"} returns the most likely sequence of hidden states.
-\code{method = "smoothed"} applies the "Forward-Backward" algorithm as described by Guédon, 2003, and returns the "smoothed" (posterior) probability of each state at each time-point.}
+\code{"Viterbi"} returns the most likely sequence of hidden states.
+\code{"FwBw"} applies the "Forward-Backward" algorithm as described by Guédon, 2003, and returns the "smoothed" (posterior) probability of each state at each time-point.}
 
-\item{ground_truth}{(optional) a \code{data.frame}.}
+\item{ground_truth}{(optional) a \code{data.frame} with three columns (\code{seq_id, t, state}) providing the ground-truth, i.e. the actual hidden state, for a given (set of) sequence(s) and time-points.}
+
+\item{trust_in_ground_truth}{(optional) a double in [0,1] that indicates the reliability of the provided ground-truth. 1 means "full trust", 0 means "no trust". Default value is 0.75.}
+
+\item{verbose}{logical. Should the function prints additional information?}
 }
 \description{
-This function predict the most likely hidden states from observations.
+This function predicts the most likely hidden states from observations.
 Two methods are implemented:
-the first one applies the Viterbi algorithm and predicts the most likely sequence of hidden states,
-the second one applies the Forward-Backward algorithm and returns the probabilitiy of each state at each time-point.
+\code{"Viterbi"} applies the Viterbi algorithm and predicts the most likely sequence of hidden states,
+and \code{"FwBw"} applies the Forward-Backward algorithm and returns the probability of each state at each time-point.
 }
 \examples{
+
+library(tidyverse)
+
 my_model_spec = simple_model_spec
 Xsim = simulate_hsmm(my_model_spec, n_state_transitions = 20)
 my_model_init = initialize_hsmm(my_model_spec)
-viterbi = predict_states_hsmm(model = my_model_init, X = Xsim, method = "viterbi")
+
+# viterbi decoding
+viterbi = predict_states_hsmm(model = my_model_init, X = Xsim, method = "Viterbi")
 Xsim$state_viterbi = viterbi$state_seq$state
 plot_hsmm_seq(X = Xsim, model = my_model_init)
+
+# forward backward decoding
+smoothed = predict_states_hsmm(model = my_model_init, X = Xsim, method = "FwBw")
+Xsim$state_smoothed = smoothed$state_seq$state
+plot_hsmm_seq(X = Xsim \%>\% dplyr::select(-state_viterbi), model = my_model_init)
+
+ggplot(smoothed$state_probs, aes(x = t, y = posterior, col = factor(state))) + geom_line() + scale_color_manual(values = my_model_spec$state_colors)
 
 }

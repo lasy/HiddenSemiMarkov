@@ -1,0 +1,540 @@
+---
+title: "'mhsmm' package modifications"
+author: "Laura Symul"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  bookdown::html_document2: 
+    theme: flatly
+    highlight: haddock
+    toc: yes
+    toc_float: true
+    toc_depth: 5
+    number_sections: true
+    fig_caption: true
+---
+
+
+# `HiddenSemiMarkov` Package description {#pkg-descr}
+
+```{r pkg-setup, include = FALSE, eval = TRUE, cache = FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+source("Scripts/00_setup.R")
+```
+
+This package was inspired by the `mhsmm` package and has adopted some of its methods and C-code. 
+
+## Notations
+
+```{r package-notations-illustration, out.width = "70%", echo = FALSE}
+knitr::include_graphics("../Figures_Tables_Media/Media/Suppl_figures_Notations.png")
+```
+
+
+
+__Observations__
+
+- **Variables**: $k \in \{1,..,K\}$ where $K$ is the number of variables.
+
+- **Observation matrix**: $\mathbf{X}$ of dimensions $(N \times K)$. $x_i$ is the set of all variables at time-point $i$.
+
+- **Sequence index** (time-point): $i \in \{1,..,N\}$ where $N$ is the length of a sequence (of a time-series).
+
+
+__Model parameters__
+
+- **States**: $j \in \{1,..,J\}$ where $J$ is the number of states.
+
+- **Initial probabilities**: $\pi_j = \Pr(S_{i = 1} = j)$  (vector of length $J$)
+
+- **Transition probabilities**: $T_{(j_1,j_2)} = \Pr(S_{i = I} = j_2| S_{i = I-1} = j_1)$ (matrix of dimension $J \times J$)
+
+- **Sojourn distributions**: $d_j(u)$ is the probability of staying in state $j$ for a duration $u$.
+
+- **Marginal emission distributions**: $e_k(v, j) = \Pr(X_k = v | S = j)$ is the probability of observing the value $v$ for variable $k$ in state $j$.
+
+- **Missingness probabilities**: $m_k(j) = \Pr(X_k = \varnothing | S = j)$ is the probability of variable $k$ being missing in state $j$.
+
+- **Model parameters**: $\theta = (\pi, T, d, e, m)$ is the set of parameters specifying a semi-Markov model.
+
+
+__Probabilities__
+
+- Shorthand notations: $\Pr(S_{j,i}) := \Pr(S_{t = i} = j)$ and $Pr(X_i) := \Pr(X_{t = i} = x_{t=i})$
+
+- **Emission probabilities** $\Pr(X_i| S_j; \theta)$ is the probability of observing time-point $i$ observations, including the missingness for each variable and the value of the augmented variables given state $j$. This is the input of the decoding algorithms. Shorthand notation: $b_{i,j} = \Pr(X_i| S_j ; \theta)$
+
+- **Posterior state probabilities** $\Pr(S_{j,i}|X; \theta)$ is the probability of state $j$ at time-point $i$ given the whole observations sequence. This is the output of the forward backward decoding algorithm and, in this context, are referred to as the "smoothed" probababilities
+
+
+
+\lsy{TODO: package the shiny app into a function that can be called with inputs: a hsmm model, observations (X), existing decoding and (optional) existing manual labels on which the labeling or validation should be saved.}
+
+
+\newpage
+
+## Model specification (generative model) and sequence simulations {#pkg-spec} 
+
+The specification of a hidden semi-Markov model requires the number of state, the initial probabilities (i.e. the probability for each state to start a state sequence), the transition probabilities (i.e. the probabilities to switch from one state to another), the sojourn distributions for each state (parametric or non-parametric distributions) and the marginal emission probabilities (i.e. the distributions of values of each variables in each state). Note that, while we do not specify joint distributions for the different values, potential within-state dependencies between variables can be learned at the initialization step if labelled data is provided or when fitting the model.
+
+### Model graph and parameter specification
+
+
+__Data augmentation function__ (optional)
+
+Finally, it is possible to provide a data augmentation function to the model. This function typically is a transformation or combination of several variables or a time-series manipulation (smoothing, rolling function).
+
+This function needs to
+
+* take a matrix of observation (`X`) as input 
+
+* return a matrix `E` with the same number of row as `X` and the column `seq_id` and `t` such that `E` can be matched to `X`
+
+* has two options: `get_variable_names_only` and `get_variable_types_only` which take a logical (`TRUE`/`FALSE`) as argument and, if `TRUE` returns the names (`get_variable_names_only`) or the type (`get_variable_types_only`) of the columns that will be returned in `E`. When the types are requested, the function must return a list with the names as the variable names that specify is the variable is categorical (`'cat'`) or not (`'numerical'`) and the possible categorical values if so. 
+
+* the augmented variables cannot contain any `NA`, `NaN` or `Inf` values.
+
+* the augmented variables must be factors (categorical) or numbers in $[0,1]$.
+
+We will skip this option in our toy example but the FAM-models have data augmentation functions attached to them (see section \@ref(FAM-full-data-augmentation)).
+
+__specify_hsmm__
+
+Now that we have defined the model graph and parameters, we can create a `hsmm` model with the `specify_hsmm()` function.
+
+```{r toy-spec}
+
+toy_spec = specify_hsmm(J = toy$J, 
+                        state_names = toy$state_names, state_colors = toy$state_colors,
+                        init = toy$init, transition = toy$trans, 
+                        sojourn = toy$sojourn, 
+                        parms.emission = toy$emission_dist)
+class(toy_spec)
+
+```
+
+__Visualizing the specified model__
+
+
+```{r toy-spec-viz-transitions, fig.height=3, fig.width=3, fig.cap= "Toy model graph (transitions)."}
+
+plot_hsmm_transitions(model = toy_spec)
+
+```
+
+
+```{r toy-spec-viz-sojourns, fig.width=5, fig.height=2.5, fig.cap= "Toy model sojourn distributions."}
+plot_hsmm_sojourn_dist(model = toy_spec)
+```
+
+
+```{r toy-spec-viz-em-dist, fig.height=4, fig.width=7, out.height = '8cm', fig.cap="Toy model marginal emission distributions."}
+
+plot_hsmm_em_par(model = toy_spec)
+
+```
+
+
+
+### Simulating data {#pkg-sim}
+
+State sequences and observations can now be simulated from the specified model.
+
+```{r toy-sim, fig.width=10, fig.height=4, fig.cap="Simulated state sequence and observations with the toy model.", warning=FALSE}
+
+X = simulate_hsmm(model = toy_spec, n_state_transitions = 20)
+
+plot_hsmm_seq(X = X, model = toy_spec)
+
+```
+
+
+    
+## Sequence decoding  {#pgk-decode}
+
+To decode a sequence of observation, one can use the functions `predict_hsmm_states()` or simply `predict()` which is a wrapper around `predict_hsmm_states()` defined for consistency with other predicting methods in `R`.
+
+__predict_hsmm_states__
+
+The `predict_hsmm_states()` takes as input an `hsmm` model, a sequence of observations and a string specifying which decoding algorithm should be used. There are two decoding algorithm: the Viterbi algorithm (`method = "viterbi"`), which returns the most likely sequence of states given the observations, or the Forward-Backward algorithm (`method = "smoothed"`) which returns the probability of each state at each time-point given the whole sequence of observations. See examples below.
+
+__algorithms implementation in C__
+
+
+The implementation of the two decoding algorithms is inherited from the `mhsmm` package and written in `C` for efficiency.  
+
+Both algorithm (Viterbi and Forward-Backward) take as input the following arguments:
+
+- a vector of initial probabilities $\pi$: the probabilities of each state as the start of the sequence.
+
+- a matrix of transition probabilities $T$: $T_{j_1,j_2}$ is the probability to transition from state $j_1$ to state $j_2$.
+
+- the sojourn distributions: parametric distributions are transformed into a sojourn distribution matrix $d$ of dimension $M \times J$ where $M$ is the longest possible sojourn of all states, non-parametric distributions were already in this format.
+
+- a matrix with the observation probabilities $P$ of dimensions $N \times J$: $P_{i,j} = \Pr(X_i, E_i|S_j)$ 
+
+The main contribution of this package is to propose a method for computing the matrix $P$ when observations are sparse multi-variate time-series with variables of different types.
+
+To account for time-series with variables of different types, we use classifying models to compute the local state probabilities (see previous section). To deal with missing data, we use a modal approximation, described in section \@ref(pkg-missing) below.
+
+__Output__
+
+`predict_hsmm_states()` returns a list with two (`viterbi`) or three (`smoothed`) tables: 
+
+1. `state_seq` with three columns: 
+
+    * `seq_id` (the id of the sequences, same as in `X`), 
+
+    * `t` the time-point (same as in `X`) and 
+
+    * `state` the most probable hidden state at that time-points. 
+
+2. `loglik` with two columns:
+
+    *  `seq_id`
+
+    * `ll` the log-likelihood of the decoding for that sequence
+
+3. `state_probs` (for `smoothed` only), a table of 5 columns:
+
+    * `seq_id`
+
+    * `t`
+
+    * `state`
+
+    * `obs_prob`: the probability of the observations in that state (i.e. $\Pr(X_i| S_j)$)
+
+    * `posterior`: the state probability given the whole observation sequence (i.e. $\Pr(S_j| X)$)
+    
+
+### State sequence likelihood
+
+The likelihood (or probability) of a decoded sequence $s$ is the product of (i) the probabilities of the observations given the decoded state, (ii) of the probabilities of the state transitions and (iii) of the first state and (iv) of the probabilities of each state duration.
+
+\begin{align}
+\Pr(X = x, S = s; \theta) & = \pi_{s_1}  d_{s_1}(u_1) \ \ \Bigl\{ \prod_{r = 2}^R T_{(s_{r-1},s_r)} \ d_{s_r}(u_r) \Bigr\} \ \ \ T_{(s_{R-1},s_R)} D_{s_R}(u_R) \ \ \prod_{i = 1}^{N} \Pr(X_i | s_i)
+\end{align}
+
+where $s$ is the decoded sequence, $x$ is the sequence of observations, $\theta$ are the model parameters, $\pi$ are the initial probabilities, $d_j(u)$ is the probability of a sojourn of duration $u$ for state $j$, $T_{(j_1,j_2)}$ is the transition probability from state $j_1$ to $j_2$ and $D_j(u)$ is the survivor function ($D_j(u) = \sum_{v \geq u} d_j(v)$), so that there is no assumption on a state transition at the end of the sequence. \lsy{shouldn't it be R-1 for the first product?}
+
+
+### Example
+
+We decode the observations that were simulated in section \@ref(pkg-sim).
+
+__Decoding with Viterbi__
+
+```{r toy-viterbi, fig.width=10, fig.height=4, fig.cap="Viterbi decoding of the simulated observation sequence.", warning=FALSE}
+
+viterbi_decoding = predict_states_hsmm(model = toy_init, X = X, method = "viterbi", verbose = FALSE)
+X = X %>% mutate(state_Viterbi = viterbi_decoding$state_seq$state)
+
+plot_hsmm_seq(X = X, model = toy_init)
+
+```
+
+
+
+
+__Decoding with Forward-Backward__
+
+
+```{r toy-fwbw, fig.width=10, fig.height=4, fig.cap="Forward-Backward decoding of the simulated observation sequence.", warning=FALSE}
+
+fwbw_decoding = predict_states_hsmm(model = toy_init, X = X, method = "smoothed")
+X = X %>% select(-state_Viterbi) %>% mutate(state_FwBw = fwbw_decoding$state_seq$state)
+
+plot_hsmm_seq(X = X, model = toy_init)
+
+X = X %>% select(-state_FwBw)
+
+```
+
+```{r toy-fwbw-2, fig.width=10, fig.height=1.2, fig.cap="Posterior probabilities returned by the Forward-Backward decoding of the simulated observation sequence.", warning=FALSE, echo = FALSE}
+
+fwbw_decoding = predict_states_hsmm(model = toy_init, X = X, method = "smoothed")
+
+ggplot(fwbw_decoding$state_probs, aes(x = t, y = posterior, col = toy_init$state_colors[state]))+
+  geom_line()+
+  scale_color_identity()
+
+```
+
+
+\newpage
+
+## Model fitting (Expectation-Maximization) {#pkg-fit}
+
+To fit a model to a set of observed sequences, an EM (expectation maximization) is used. The purpose of fitting a model is to update the model parameters (initial probabilities, transition probabilities, sojourn distributions and emission distributions) so that the likelihood of the decoded state sequence is maximal.
+
+### E-step
+
+In the E-step, the set of sequences are decoded with the Forward-Backward algorithm. The algorithm return the total likelihood of decoding for this set of sequences and the posterior probability of each state at each time-point.
+
+### M-step
+
+In the M-step, the model parameters are updated based on the posterior probabilities of the states computed in the E-step. Note that the package user can specified if one type of parameters should not be updated. For example, it could be desirable to lock the transition probabilities, the sojourn distributions or the emission distributions. Each of these parameters can be locked by the package users.
+
+#### Sojourn distributions.
+
+The C-implementation of the Forward-Backward algorithm inherited from the `mhsmm` package provides a matrix with the re-estimated sojourn distributions (see section 3.5 of @oconnell_hidden_2011). Briefly, for each state (column of the matrix), a sojourns histogram is built from the Forward-Backward decoding.
+
+If the package user provided the initial sojourn distributions as non-parametric, the sojourn distributions returned by the Forward-Backward algorithm are kept as is. For other type of sojourn distributions, the corresponding distribution parameters are re-estimated to fit the returned distributions.
+
+#### Transition probabilities.
+
+Similarly, the C-implementation of the Forward-Backward algorithm inherited from the `mhsmm` package provides a re-estimated transition matrix and initial probability vector. @oconnell_hidden_2011
+
+
+#### Observation probabilities 
+
+TODDO: check this paragraph
+
+The observation probabilities, _i.e._ $\Pr(X_i, E_i | S_j)$, are updated from the prior (initial) probabilities as non-parametric distributions:
+
+\begin{align}
+p[A,j] & = \frac{ n_0  p_0[A,j] + n_j  p_X[A,j]}{\alpha + n_j} \\
+\end{align}
+
+Where $A$ is a combination of values of $X$ and $E$ and $n_j = \sum_{i = 1}^{N} w_{i,j}$ (same as above).
+
+
+\begin{align}
+p_X[A,j] & =  \frac{\sum_{i = 1}^{N} w_{i,j} (X_i,E_i = A)}{n_j} \\
+\end{align}
+
+
+### Stopping the EM iterations.
+
+The E and M steps are iterative executed until
+
+* the procedure converges, _i.e._ the difference in likelihood between the decoding of two consecutive E-step is smaller than a threshold specified by the package user (default value is provided);
+
+* the maximal number of iteration as specified by the package user is reached;
+
+* there was an error in the E-step in attempting to decode the model. Typically, this indicates that the model is unable to explain some of the observations, _i.e._ that some observations falls outside the range of possibly generated values from the model and that the probability for all states at these time-points were too low.
+
+
+### Fitting models when a partial ground truth is provided
+
+Our method can learn from partial ground-truth. If some ground-truth is provided together with the sequences on which the model is fitted, then the E-step and M-step are modified as follow:
+
+* __E-step__: The provided ground-truth is passed on as an argument to the decoding algorithm with a `trust_in_ground_truth` parameter, which takes a value between 0 (no trust) and 1 (full trust). The joint observation probabilities are then weighted with the ground truth as follow: 
+
+$$\Pr(X_i|S_{i,j})_a = (1-t)\  \Pr(X_i|S_{i,j})_m + t \ (S_{i,j} = GT_i)$$
+
+where $\Pr(X_i|S_{i,j})_a$ is the adjusted joint probability, $\Pr(X_i|S_{i,j})_m$ is joint probability estimated by the model, $GT_i$ is the ground-truth provided for time-point $i$ and $t$ is the `trust_in_ground_truth` parameter.
+
+
+* __M-step__: In the M-step, the posterior state probabilities are modified in a similar fashion before the emission distributions are re-estimated and the local state probability models are re-trained:
+
+$$\Pr(S_{i,j}|X)_a = (1-t)\  \Pr(S_{i,j}|X)_m + t \ (S_{i,j} = GT_i)$$
+
+### Examples {#pkg-fit-example}
+
+To demonstrate the fitting procedure, the emission distributions of the toy model used to simulate the observations are first slightly modified. This modified model is then fitted, first with no ground-truth provided, then with partial ground-truth provided.
+
+__Modifying the model__
+
+```{r toy-modif, fig.width=6, fig.height=6, out.height='10cm', fig.cap="Local state probability model coefficients of the modified vs initial model.", warning=FALSE}
+
+toy_modif = toy
+
+# var1
+toy_modif$emission_dist$var1$params$mean = c(-0.5,0.5)
+toy_modif$emission_dist$var1$params$sd = c(0.5,0.5)
+toy_modif$emission_dist$var1$missing_prob = c(0.4,0.6)
+toy_modif$emission_dist$var1$params$n0 = 2 # we don't want strong priors
+
+
+# var2
+toy_modif$emission_dist$var2$params$prob = c(0.4,0.6)
+toy_modif$emission_dist$var2$params$n0 = 2 # we don't want strong priors
+
+
+# var3
+toy_modif$emission_dist$var3$params$probs[,1] = c(0.3,0.2,0.2,0.3)
+toy_modif$emission_dist$var3$missing_prob = c(0.3,0.6)
+toy_modif$emission_dist$var3$params$n0 = 2 # we don't want strong priors
+
+
+toy_modif_spec = specify_hsmm(J = toy_modif$J, 
+                              state_names = toy_modif$state_names, state_colors = toy_modif$state_colors,
+                              init = toy_modif$init, transition = toy_modif$trans, 
+                              sojourn = toy_modif$sojourn, 
+                              parms.emission = toy_modif$emission_dist)
+
+class(toy_modif_spec)
+
+toy_modif_init = initialize_hsmm(model = toy_modif_spec)
+
+class(toy_modif_init)
+
+
+```
+
+
+
+__Fitting the modified model to the simulated data without any ground-truth__
+
+
+```{r toy-fit-no-GT, fig.width=2.5, fig.height=2.5, fig.cap="Convergence of the EM when modified model is fitted to the data without ground-truth."}
+
+fitted_toy_no_GT = fit_hsmm(model = toy_modif_init, X = X, n_iter = 10, lock.transition = TRUE, lock.sojourn = TRUE, verbose = FALSE)
+
+plot_hsmm_fit_param(model = fitted_toy_no_GT, title = "EM-status")
+
+```
+
+```{r toy-fit-no-GT-em-dist, fig.height=10, fig.width=8, out.height='12cm', fig.cap="Comparison of the emission distributions between the initial, modified and fitted models.", echo = FALSE}
+
+g_init = plot_hsmm_em_par(model = toy_init) + ggtitle("Initial model")
+
+g_modif = plot_hsmm_em_par(model = toy_modif_init) + ggtitle("Modified model")
+
+g_fitted = plot_hsmm_em_par(model = fitted_toy_no_GT$model) + ggtitle("Fitted model")
+
+ggarrange(g_init, g_modif, g_fitted, ncol = 1)
+
+```
+
+
+```{r toy-fit-no-GT-decoding, fig.height=5, fig.width=10, fig.cap="Comparison of the Forward-Backward decoding between the initial, modified and fitted models.", warning=FALSE, echo = FALSE}
+
+fwbw_decoding_init = predict_states_hsmm(model = toy_init, X = X, method = "smoothed")
+fwbw_decoding_modif = predict_states_hsmm(model = toy_modif_init, X = X, method = "smoothed")
+fwbw_decoding_fitted = predict_states_hsmm(model = fitted_toy_no_GT$model, X = X, method = "smoothed")
+
+X_no_GT = X %>% 
+  rename(state_ground_truth = state) %>% 
+  mutate(state_init = fwbw_decoding_init$state_seq$state, 
+         state_modif = fwbw_decoding_modif$state_seq$state,
+         state_fitted = fwbw_decoding_fitted$state_seq$state)
+
+plot_hsmm_seq(X = X_no_GT, model = toy_init)
+
+```
+
+
+
+
+
+
+__Fitting the modified model to the simulated data with partial ground-truth__
+
+
+The partial ground-truth is a random sampling of half of the ground-truth.
+
+```{r toy-fit-GT, fig.width=2.5, fig.height=2.5, fig.cap="Convergence of the EM when modified model is fitted to the data with some ground-truth."}
+
+GT = X %>% select(seq_id, t, state)
+GT = GT[sample(1:nrow(GT),round(nrow(GT)/2)),]
+
+fitted_toy_GT = fit_hsmm(model = toy_modif_init, X = X, ground_truth = GT, lock.transition = TRUE, lock.sojourn = TRUE)
+plot_hsmm_fit_param(model = fitted_toy_GT)
+
+```
+
+```{r toy-fit-GT-em-dist, fig.height=10, fig.width=8, out.height='12cm', fig.cap="Comparison of the emission distributions between the initial, modified and fitted (with partial ground-truth) models.", echo=FALSE}
+
+g_init = plot_hsmm_em_par(model = toy_init) + ggtitle("Initial model")
+
+g_modif = plot_hsmm_em_par(model = toy_modif_init) + ggtitle("Modified model")
+
+g_fitted = plot_hsmm_em_par(model = fitted_toy_GT$model) + ggtitle("Fitted model")
+
+ggarrange(g_init, g_modif, g_fitted, ncol = 1)
+
+```
+
+
+```{r toy-fit-GT-decoding, fig.height=5.5, fig.width=10, fig.cap="Comparison of the Forward-Backward decoding between the initial, modified and fitted (with partial ground-truth) models.", warning=FALSE, echo=FALSE}
+
+#fwbw_decoding_init = predict_states_hsmm(model = toy_init, X = X, method = "smoothed")
+#fwbw_decoding_modif = predict_states_hsmm(model = toy_modif_init, X = X, method = "smoothed")
+fwbw_decoding_fitted = predict_states_hsmm(model = fitted_toy_GT$model, X = X, method = "smoothed")
+
+X_GT = X %>% left_join(., GT %>% rename(state_partial_ground_truth = state), by = c("seq_id","t"))
+
+
+X_GT = X_GT %>% 
+  rename(state_ground_truth = state) %>% 
+  mutate(state_init = fwbw_decoding_init$state_seq$state, 
+         state_modif = fwbw_decoding_modif$state_seq$state,
+         state_fitted = fwbw_decoding_fitted$state_seq$state)
+
+plot_hsmm_seq(X = X_GT, model = toy_init)
+
+```
+
+
+__Learning within-state variable dependencies__
+
+As a proof of concept that, despite a specification and initialization assuming independent variables given the state, such within-state dependencies can be learned during the fitting process, we simulate sequences with the toy model, then modify the simulated sequences so that there is dependence between two variables, then fit the model and evaluate the joint-probabilities.
+
+Specifically, we will add a dependency in state 1 between variable 1 and 3: whenever variable 3 is missing, variable 1 will take lower values, and when variable 3 is present, variable 1 will have higher values.
+
+```{r toy-sim-dep, warning = FALSE,fig.height=3, fig.width= 4, fig.cap="Distribution of var1 per value of var3 from the initial and modified simulated sequences."}
+
+Xd = X
+
+j_var_3_missing = which(is.na(Xd$var3) & (Xd$state == 1))
+j_var_3_a =  which((Xd$var3 == "a") & (Xd$state == 1))
+
+all_var1_state_1 = Xd$var1[Xd$state == 1]
+Xd$var1[j_var_3_missing] = sort(all_var1_state_1)[1:length(j_var_3_missing)]
+Xd$var1[j_var_3_a] = sort(all_var1_state_1, decreasing = TRUE)[1:length(j_var_3_a)]
+
+ggplot(X %>% filter(state ==1), aes(x = var1))+
+  geom_histogram(binwidth = 0.1)+
+  facet_grid(var3 ~ .)+ggtitle("Distribution of var1 per value of var3 from the initial model simulation")
+
+
+ggplot(Xd %>% filter(state ==1), aes(x = var1))+
+  geom_histogram(binwidth = 0.1)+
+  facet_grid(var3 ~ .)+ggtitle("Distribution of var1 per value of var3 after modification of the sequence to introduce a within state dependency")
+
+
+```
+
+The toy model is now fitted on this modified time-series.
+
+```{r toy-sim-dep-fit, warning = FALSE, fig.height=3, fig.width= 7, fig.cap="Joint emission distributions of the initial and fitted model with within-state variable dependencies."}
+
+toy_fitted = fit_hsmm(model = toy_init, X = X, lock.sojourn = TRUE, lock.transition = TRUE, N0 = 10)
+plot_hsmm_fit_param(toy_fitted)
+
+
+toy_fitted_d = fit_hsmm(model = toy_init, X = Xd, lock.sojourn = TRUE, lock.transition = TRUE, N0 = 10)
+plot_hsmm_fit_param(toy_fitted_d)
+
+plot_hsmm_joint_em_prob(model = toy_init, title = "Initial model")
+plot_hsmm_joint_em_prob(model = toy_fitted$model, title = "Model fitted on the original simulated sequence")
+plot_hsmm_joint_em_prob(model = toy_fitted_d$model, title = "Model fitted on the modified simulated sequence")
+
+```
+
+The joint emission distributions show that the dependencies between the variables has been learned.
+
+\newpage
+
+## Sequence labelling tool
+
+It is often useful to dispose of tools facilitating the manual labeling of sequences. For example, labeling sequencing can be useful to evaluate the performance of a model or to use "interactive boosting", a method in which sequences in which the model performs as expected are manually validated and sequences in which the model is not performing as expected yet are manually labeled. \lsy{CITE}.
+
+The `HiddenSemiMarkov` package has a built-in interactive tool (`shiny` app) which can be called with `label_sequences(model, X, ground_truth)`. This function takes as input arguments a set of sequences and a model. Optionally, the user can also provide a set of labels to which the new labels will be added, and a set of labels to validate, typically, the output of the decoding algorithm (`predict_hsmm_states()`). The `label_sequences()` function launches an interactive window in which the user can select the sequence to label and zoom within that sequence via a slider. With another slider, the user can select an interval in the sequence and either validate an existing decoding or label that interval with one of the state models.
+
+The function returns the set of new labels concatenated with the set of previous labels if provided.
+
+
+```{r toy-labels, eval = FALSE}
+
+ground_truth = label_sequences(model = toy_init, X = X_GT %>% rename(state_simulated = state_ground_truth))
+
+
+```
+
+
+```{r labeling-app-screenshot, out.width = "100%", echo = FALSE}
+knitr::include_graphics("../Figures_Tables_Media/Media/labeling_app.png")
+```

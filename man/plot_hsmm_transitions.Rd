@@ -4,13 +4,25 @@
 \alias{plot_hsmm_transitions}
 \title{Visualizes the model graph with transition probabilities.}
 \usage{
-plot_hsmm_transitions(model, layout = NULL)
+plot_hsmm_transitions(
+  model,
+  size = 20,
+  label_size = NULL,
+  label_color = "white",
+  arrow_gap = NULL
+)
 }
 \arguments{
 \item{model}{a \code{hsmm} or \code{hsmm_spec} object specifying the model for which the transition probabilities should be visualized.}
 
-\item{layout}{(optional) a matrix of dimension \code{model$J x 2} which provides the coordinates (x,y) of where the states should be placed on the canvas.
-If not provided, the layout may slightly differ each time the function is ran.}
+\item{size}{(optional) the size of the nodes (hidden states).}
+
+\item{label_size}{(optional) the size of the labels, i.e. hidden state names.}
+
+\item{label_color}{(optional) the color of the labels. Default is white. Any valid color specification can be used here.}
+
+\item{arrow_gap}{(optional) a \code{double} value in [0,1] specifying the gap between the arrow tips and the nodes.
+If \code{NULL} (default value), the function adapts the value of this parameter to the specified size.}
 }
 \value{
 a ggplot object.

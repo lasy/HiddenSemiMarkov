@@ -2,19 +2,20 @@
 % Please edit documentation in R/hsmm_functions.R
 \name{fit_hsmm}
 \alias{fit_hsmm}
-\title{Fit a hidden semi-Markov model to data sequences}
+\title{Fits a hidden semi-Markov model to data sequences}
 \usage{
 fit_hsmm(
   model,
   X,
-  ground_truth = data.frame(),
   n_iter = 10,
   rel_tol = 1/20,
-  lock.transition = FALSE,
-  lock.sojourn = FALSE,
-  lock.emission = FALSE,
+  lock_emission = FALSE,
+  lock_transition = FALSE,
+  lock_sojourn = FALSE,
+  use_sojourn_prior = TRUE,
+  ground_truth = data.frame(),
   trust_in_ground_truth = 0.75,
-  alpha = 200,
+  N0 = 1,
   verbose = FALSE,
   graphical = FALSE
 )
@@ -24,17 +25,19 @@ fit_hsmm(
 
 \item{X}{a \code{data.frame} of observations.}
 
-\item{ground_truth}{(optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known. Default is an empty \code{data.frame}, _i.e._ no ground truth.}
-
 \item{n_iter}{(optional) an integer specifiying the maximal number of iterations for the EM-procedure. Default value is 10.}
 
 \item{rel_tol}{(optional) a positive double specifying the tolerance at which to stop the EM. If the difference in likelihood (normalized by the total sequences length) between two iterations of the EM is smaller than \code{rel_tol}, then the EM procedure is considered to have converged to a local maximum.}
 
-\item{lock.transition}{(optional) a logical. Default is \code{FALSE}. Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.}
+\item{lock_emission}{(optional) a logical. Default is \code{FALSE}. Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.}
 
-\item{lock.sojourn}{(optional) a logical. Default is \code{FALSE}. Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.}
+\item{lock_transition}{(optional) a logical. Default is \code{FALSE}. Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.}
 
-\item{lock.emission}{(optional) a logical. Default is \code{FALSE}. Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.}
+\item{lock_sojourn}{(optional) a logical. Default is \code{FALSE}. Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.}
+
+\item{use_sojourn_prior}{(optional) a logical. Default is \code{TRUE}. Specifies if the specified sojourn distributions should be used as a prior when updating the prior distributions at the M-step of the EM.}
+
+\item{ground_truth}{(optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known. Default is an empty \code{data.frame}, _i.e._ no ground truth.}
 
 \item{trust_in_ground_truth}{(optional) a double between 0 and 1 specifying the trust in the ground truth. A value of 0 indicates no trust and is equivalent to not providing ground-truth. A value of 1 indicates full trust and the ground truth will not be modulated by the probability of the values of the observations.}
 
@@ -55,8 +58,8 @@ my_model_init = initialize_hsmm(my_model_spec) # the model is initialized
 my_model_fit = fit_hsmm(model = my_model_init, X = Xsim) # the model is fit to the observations.
 plot_hsmm_fit_param(model = my_model_fit)
 
-viterbi_init = predict_states_hsmm(model = my_model_init, X = Xsim, method = "viterbi") # predict the states with the initial model
-viterbi_fit = predict_states_hsmm(model = my_model_fit$model, X = Xsim, method = "viterbi") # predict the states with the fit model
+viterbi_init = predict_states_hsmm(model = my_model_init, X = Xsim, method = "Viterbi") # predict the states with the initial model
+viterbi_fit = predict_states_hsmm(model = my_model_fit$model, X = Xsim, method = "Viterbi") # predict the states with the fit model
 Xsim$state_viterbi_init = viterbi_init$state_seq$state
 Xsim$state_viterbi_fit = viterbi_fit$state_seq$state
 plot_hsmm_seq(X = Xsim, model = my_model_init)
