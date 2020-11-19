@@ -278,21 +278,20 @@ predict.hsmm <- function(object, newdata, method = "Viterbi", verbose = FALSE, .
 #'
 #' library(tidyverse)
 #'
-#' my_model_spec = simple_model_spec
-#' Xsim = simulate_hsmm(my_model_spec, n_state_transitions = 20)
-#' my_model_init = initialize_hsmm(my_model_spec)
+#' my_model = simple_model
+#' Xsim = simulate_hsmm(my_model, n_state_transitions = 20)
 #'
 #' # viterbi decoding
-#' viterbi = predict_states_hsmm(model = my_model_init, X = Xsim, method = "Viterbi")
+#' viterbi = predict_states_hsmm(model = my_model, X = Xsim, method = "Viterbi")
 #' Xsim$state_viterbi = viterbi$state_seq$state
-#' plot_hsmm_seq(X = Xsim, model = my_model_init)
+#' plot_hsmm_seq(X = Xsim, model = my_model)
 #'
 #' # forward backward decoding
-#' smoothed = predict_states_hsmm(model = my_model_init, X = Xsim, method = "FwBw")
+#' smoothed = predict_states_hsmm(model = my_model, X = Xsim, method = "FwBw")
 #' Xsim$state_smoothed = smoothed$state_seq$state
-#' plot_hsmm_seq(X = Xsim %>% dplyr::select(-state_viterbi), model = my_model_init)
+#' plot_hsmm_seq(X = Xsim %>% dplyr::select(-state_viterbi), model = my_model)
 #'
-#' ggplot(smoothed$state_probs, aes(x = t, y = posterior, col = factor(state))) + geom_line() + scale_color_manual(values = my_model_spec$state_colors)
+#' ggplot(smoothed$probabilities, aes(x = t, y = state_prob, col = factor(state))) + geom_line() + scale_color_manual(values = my_model$state_colors)
 #'
 predict_states_hsmm = function(model, X,
                                method = "Viterbi",
@@ -647,33 +646,31 @@ predict_states_hsmm = function(model, X,
 #' @param model a \code{hsmm} object. The model whose parameters will be re-estimated.
 #' @param X a \code{data.frame} of observations.
 #' @param ground_truth (optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known. Default is an empty \code{data.frame}, _i.e._ no ground truth.
-#' @param n_iter (optional) an integer specifiying the maximal number of iterations for the EM-procedure. Default value is 10.
+#' @param n_iter (optional) an integer specifying the maximal number of iterations for the EM-procedure. Default value is 10.
 #' @param rel_tol (optional) a positive double specifying the tolerance at which to stop the EM. If the difference in likelihood (normalized by the total sequences length) between two iterations of the EM is smaller than \code{rel_tol}, then the EM procedure is considered to have converged to a local maximum.
 #' @param lock_emission (optional) a logical. Default is \code{FALSE}. Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
 #' @param lock_transition (optional) a logical. Default is \code{FALSE}. Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.
 #' @param lock_sojourn (optional) a logical. Default is \code{FALSE}. Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
+#' @param N0 (optional) a positive number specifying the strength of the prior, i.e. the number of observations (or believed number of observations) which informed the specification of the emission distributions. This number will be used to weight the specified emission distribution against the total lenght of the sequences provided for the fit.
 #' @param use_sojourn_prior (optional) a logical. Default is \code{TRUE}. Specifies if the specified sojourn distributions should be used as a prior when updating the prior distributions at the M-step of the EM.
 #' @param trust_in_ground_truth (optional) a double between 0 and 1 specifying the trust in the ground truth. A value of 0 indicates no trust and is equivalent to not providing ground-truth. A value of 1 indicates full trust and the ground truth will not be modulated by the probability of the values of the observations.
-#' @param alpha (optional) a positive number specifying the strength of the prior TODO: explain better.
 #' @keywords HSMM
 #' @return A list. First element of the list (\code{$model}) is a \code{hsmm} object (the fitted model) and the second element (\code{$fit_param}) provides information about the EM-procedure. The second element can be visualized by calling the function \code{plot_hsmm_fit_param()}.
 #'
 #' @export
 #' @importFrom magrittr %>%
 #' @examples
-#' my_model_spec = simple_model_spec  # simple_model_spec is a model attached to the HiddenSemiMarkov package for demos
-#' Xsim = simulate_hsmm(my_model_spec, n_state_transitions = 20) # a short sequence is simulated
+#' my_model = simple_model  # simple_model is a model attached to the HiddenSemiMarkov package for demos
+#' Xsim = simulate_hsmm(my_model, n_state_transitions = 20) # a short sequence is simulated
 #'
-#' my_model_init = initialize_hsmm(my_model_spec) # the model is initialized
-#' my_model_fit = fit_hsmm(model = my_model_init, X = Xsim) # the model is fit to the observations.
-#' plot_hsmm_fit_param(model = my_model_fit)
+#' my_model_fit = fit_hsmm(model = my_model, X = Xsim) # the model is fit to the observations.
+#' plot_hsmm_fit_status(fit_output = my_model_fit)
 #'
-#' viterbi_init = predict_states_hsmm(model = my_model_init, X = Xsim, method = "Viterbi") # predict the states with the initial model
+#' viterbi_init = predict_states_hsmm(model = my_model, X = Xsim, method = "Viterbi") # predict the states with the initial model
 #' viterbi_fit = predict_states_hsmm(model = my_model_fit$model, X = Xsim, method = "Viterbi") # predict the states with the fit model
 #' Xsim$state_viterbi_init = viterbi_init$state_seq$state
 #' Xsim$state_viterbi_fit = viterbi_fit$state_seq$state
-#' plot_hsmm_seq(X = Xsim, model = my_model_init)
-
+#' plot_hsmm_seq(X = Xsim, model = my_model)
 
 fit_hsmm = function(model, X,
                     n_iter = 10, rel_tol = 1/20,

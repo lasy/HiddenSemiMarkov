@@ -23,7 +23,7 @@
 #' @import shiny
 #' @export
 #' @examples
-#' my_model = simple_model_spec
+#' my_model = simple_model
 #' Xsim = simulate_hsmm(model = my_model, n_state_transition = 20, seq_id = "test_seq")
 #' Xsim = dplyr::rename(Xsim, state_simulated_sequence = state)
 #' ground_truth = label_sequences(model = my_model, X = Xsim)

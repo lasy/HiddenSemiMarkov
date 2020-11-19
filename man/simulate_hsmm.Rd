@@ -45,8 +45,8 @@ The length of the simulated sequence can be specified either as a number of stat
 Each row of the returned \code{data.frame} is a time-point and the columns specify the sequence id, the time-point, the state and the values of the observation. Each variable has its own column.
 }
 \examples{
-my_model = simple_model_spec
-Xsim = simulate_hsmm(model = my_model)
-plot_hsmm_seq(model = my_model_spec, X = Xsim)
+my_model = simple_model # simple_model is a model attached to the HiddenSemiMarkov package for demos
+Xsim = simulate_hsmm(model = my_model, n_state_transitions = 10)
+plot_hsmm_seq(model = my_model, X = Xsim)
 }
 \keyword{HSMM}

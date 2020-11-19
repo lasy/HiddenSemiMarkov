@@ -25,9 +25,9 @@
 #' @export
 #' @importFrom magrittr %>%
 #' @examples
-#' my_model = simple_model_spec
-#' Xsim = simulate_hsmm(model = my_model)
-#' plot_hsmm_seq(model = my_model_spec, X = Xsim)
+#' my_model = simple_model # simple_model is a model attached to the HiddenSemiMarkov package for demos
+#' Xsim = simulate_hsmm(model = my_model, n_state_transitions = 10)
+#' plot_hsmm_seq(model = my_model, X = Xsim)
 
 
 simulate_hsmm = function(model,

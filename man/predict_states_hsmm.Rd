@@ -43,20 +43,19 @@ and \code{"FwBw"} applies the Forward-Backward algorithm and returns the probabi
 
 library(tidyverse)
 
-my_model_spec = simple_model_spec
-Xsim = simulate_hsmm(my_model_spec, n_state_transitions = 20)
-my_model_init = initialize_hsmm(my_model_spec)
+my_model = simple_model
+Xsim = simulate_hsmm(my_model, n_state_transitions = 20)
 
 # viterbi decoding
-viterbi = predict_states_hsmm(model = my_model_init, X = Xsim, method = "Viterbi")
+viterbi = predict_states_hsmm(model = my_model, X = Xsim, method = "Viterbi")
 Xsim$state_viterbi = viterbi$state_seq$state
-plot_hsmm_seq(X = Xsim, model = my_model_init)
+plot_hsmm_seq(X = Xsim, model = my_model)
 
 # forward backward decoding
-smoothed = predict_states_hsmm(model = my_model_init, X = Xsim, method = "FwBw")
+smoothed = predict_states_hsmm(model = my_model, X = Xsim, method = "FwBw")
 Xsim$state_smoothed = smoothed$state_seq$state
-plot_hsmm_seq(X = Xsim \%>\% dplyr::select(-state_viterbi), model = my_model_init)
+plot_hsmm_seq(X = Xsim \%>\% dplyr::select(-state_viterbi), model = my_model)
 
-ggplot(smoothed$state_probs, aes(x = t, y = posterior, col = factor(state))) + geom_line() + scale_color_manual(values = my_model_spec$state_colors)
+ggplot(smoothed$probabilities, aes(x = t, y = state_prob, col = factor(state))) + geom_line() + scale_color_manual(values = my_model$state_colors)
 
 }
