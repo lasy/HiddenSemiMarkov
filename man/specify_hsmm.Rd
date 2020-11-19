@@ -95,4 +95,7 @@ plot_hsmm_seq(model = my_model, X = Xsim)
 
 
 }
+\seealso{
+\code{simulate_hsmm()} to simulate a sequence of hidden states and observations following the model specifications, \code{predict_states_hsmm()} to predict the sequence of hidden states from observation time-series and \code{fit_hsmm()} to fit a model to sequences of observations.
+}
 \keyword{HSMM}
