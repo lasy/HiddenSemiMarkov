@@ -12,10 +12,10 @@ fit_hsmm(
   lock_emission = FALSE,
   lock_transition = FALSE,
   lock_sojourn = FALSE,
-  use_sojourn_prior = TRUE,
+  N0 = 0,
+  use_sojourn_prior = FALSE,
   ground_truth = data.frame(),
   trust_in_ground_truth = 0.75,
-  N0 = 1,
   verbose = FALSE,
   graphical = FALSE
 )

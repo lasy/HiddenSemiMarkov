@@ -59,7 +59,6 @@ simulate_hsmm = function(model,
   # sojourn matrix
   d = .build_d_from_sojourn_dist(model, M = ifelse(!is.null(n_timepoints),n_timepoints,.get_longest_sojourn(model)))
   # seq_id
-
   if(is.null(seq_id) | (typeof(seq_id) != "character")) seq_id = stringr::str_c("sim_seq ",Sys.time())
 
 
@@ -129,9 +128,11 @@ simulate_hsmm = function(model,
 }
 
 .generate_random_obs = function(n, s, model){
-  this_state_censored_obs_probs = model$censored_obs_probs %>%  dplyr::filter(state == s)
-  j = sample(1:nrow(this_state_censored_obs_probs), replace = TRUE, size = n, prob = this_state_censored_obs_probs$p)
-  random_obs = this_state_censored_obs_probs[j, ] %>%  dplyr::select(-state, -p, -p0)
+  this_state_obs_probs = model$obs_prob %>%  dplyr::filter(state == s)
+  j = sample(1:nrow(this_state_obs_probs),
+             replace = TRUE, size = n,
+             prob = this_state_obs_probs$p)
+  random_obs = this_state_obs_probs[j, ] %>%  dplyr::select(-state, -p, -p0)
   random_obs = .bin_to_continuous(random_obs, model)
 }
 

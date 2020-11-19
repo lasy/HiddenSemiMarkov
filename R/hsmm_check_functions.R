@@ -33,26 +33,161 @@
 }
 
 
-.check_sojourn = function(sojourn, J){
-  if(is.null(sojourn$type)) stop("Sojourn distribution type not specified.")
-  supported_sojourns = available_sojourn_dist()$distribution_type
-  if(all(sojourn$type!= supported_sojourns)) stop(paste("Invalid sojourn type specified (",sojourn$type,"). Must be one of: ", paste(supported_sojourns, collapse = ", ")))
-  # TODO: check that the parameters of the sojourns are specified as they should.
-  if(sojourn$type == "nonparametric") sojourn = .check_nonparametric_sojourn(sojourn, J)
+.check_sojourn = function(sojourn, J, state_names){
+
+  # sojourn distributions can be specified in 2 different ways:
+  # 1. one sojourn type for all states
+  # 2. one sojourn type for each state
+
+  if(is.null(sojourn$type) & (length(sojourn) != J)) stop("Sojourn distribution type not specified.")
+
+  if("type"  %in% names(sojourn)){
+    supported_sojourns = available_sojourn_dist()$distribution_type
+    if(!(sojourn$type %in% supported_sojourns)) stop(paste("Invalid sojourn type specified (",sojourn$type,"). Must be one of: ", paste(supported_sojourns, collapse = ", ")))
+
+    sojourn = .check_sojourn_all_states(sojourn, J)
+
+    #sojourn$type = rep(sojourn$type, J)
+    sojourn_per_state = purrr::map(
+      .x = 1:J,
+      .f = function(j){
+        s = list()
+        s$type = sojourn$type
+        for(k in 2:length(sojourn))
+          if(sojourn$type %in% c("nonparametric","ksmoothed_nonparametric"))
+            s[[k]] = sojourn[[k]][,j]
+          else s[[k]] = sojourn[[k]][j]
+        names(s) = names(sojourn)
+        s
+      }
+    )
+  }else{
+    sojourn_per_state = purrr::map(
+      .x = 1:J,
+      .f = function(j){
+        s = .check_sojourn_single_state(sojourn[[j]])
+        s
+      }
+    )
+  }
+  names(sojourn_per_state) = state_names
+  sojourn = sojourn_per_state
   sojourn
 }
 
-.check_nonparametric_sojourn = function(sojourn, J){
-  if(is.null(sojourn$d) || (ncol(sojourn$d) != J))
-    stop("Non-parametric sojourn distributions must be specified by a matrix d: sojourn = list(type = 'nonparametric', d = ...matrix of dim M x J...) where M is the longuest sojourn duration. \n")
-  if(any(is.na(sojourn$d))) stop("NA values found in the sojourn distribution matrix d.\n")
-  if(any(colSums(sojourn$d) == 0)) stop("At least one state does not have a valid sojourn distribution. Check your matrix d\n")
-  if(any(round(colSums(sojourn$d),10) != 1)){
-    warning("The provided sojourn distributions do not sum to 1 for at least one state. Sojourn distributions are normalized so that they sum to 1.")
-    sojourn$d = t(t(sojourn$d)/colSums(sojourn$d))
+
+.check_sojourn_all_states = function(sojourn, J){
+
+  # first we check it has all the parameters
+  params = .get_required_params(sojourn_type = sojourn$type)
+  if(!(
+    all(params$required_params %in% names(sojourn))|
+    all(params$backup_required_params %in% names(sojourn))
+    )) stop("Sojourn distributions are not specified as they should.
+            Type ?specify_hsmm for examples and details.\n")
+
+  if((length(params$optional_params)!=0) & is.null(sojourn$shift)) sojourn$shift = rep(1, J)
+
+  # then we check the dimensions and/or specifications
+  if(sojourn$type %in% c("nonparametric","ksmoothed_nonparametric")){
+    if(ncol(sojourn$d) != J)
+      stop("Non-parametric sojourn distributions must be specified by a matrix d: sojourn = list(type = 'nonparametric', d = ...matrix of dim M x J...) where M is the longuest sojourn duration. \n")
+    if(any(is.na(sojourn$d))) stop("NA values found in the sojourn distribution matrix d.\n")
+    if(any(colSums(sojourn$d) == 0)) stop("At least one state does not have a valid sojourn distribution. Check your matrix d\n")
+    if(any(round(colSums(sojourn$d),10) != 1)){
+      warning("The provided sojourn distributions do not sum to 1 for at least one state. Sojourn distributions are normalized so that they sum to 1.")
+      sojourn$d = t(t(sojourn$d)/colSums(sojourn$d))
+    }
+  }else{
+    for(k in 2:length(sojourn)){
+      if(any(is.na(sojourn[[k]])))
+        stop("NA values found in the sojourn distribution parameters.\n")
+      if(length(sojourn[[k]]) == 1){
+        warning(paste0("Sojourn parameter '",names(sojourn)[k],"' is of length 1. Assuming the same value for all states.\n"))
+        sojourn[[k]] = rep(sojourn[[k]], J)
+        }
+      if(length(sojourn[[k]]) != J)
+        stop(paste0("Sojourn parameter '",names(sojourn)[k],"' does not have as many element as there are states in the model.\n"))
+    }
   }
+
   sojourn
 }
+
+.get_required_params = function(sojourn_type){
+
+  required_params = available_sojourn_dist() %>%
+    dplyr::filter(distribution_type == sojourn_type) %>%
+    dplyr::select(parameters) %>% unlist() %>%
+    stringr::str_split(., pattern = ", ") %>% unlist()
+  optional_params = c()
+  backup_required_params = c()
+
+  if("shift" %in% required_params){
+    required_params = required_params[-which(required_params == "shift")]
+    optional_params = c(optional_params, "shift")
+  }
+
+  if(any(stringr::str_detect(required_params,"or "))){
+    backup_required_params = required_params
+    j = which(stringr::str_detect(required_params,"or "))
+    param_options = stringr::str_split(required_params[j], " or ") %>% unlist()
+    required_params[j] = param_options[1]
+    backup_required_params[j] = param_options[2]
+  }
+
+  list(required_params = required_params,
+       backup_required_params = backup_required_params,
+       optional_params = optional_params)
+}
+
+.check_sojourn_single_state = function(sojourn_one_state){
+
+  # first we check it has all the parameters
+  params = .get_required_params(sojourn_type = sojourn_one_state$type)
+  if(!(
+    all(params$required_params %in% names(sojourn_one_state))|
+    all(params$backup_required_params %in% names(sojourn_one_state))
+  )) stop("Sojourn distributions are not specified as they should.
+            Type ?specify_hsmm for examples and details.\n")
+
+  if((length(params$optional_params)!=0) & is.null(sojourn_one_state$shift)) sojourn_one_state$shift = 1
+
+  # then we check the dimensions and/or specifications
+  if(sojourn_one_state$type %in% c("nonparametric","ksmoothed_nonparametric")){
+    if(any(is.na(sojourn_one_state$d))) stop("NA values found in the sojourn distribution vector d.\n")
+    if(sum(sojourn_one_state$d) == 0) stop("At least one state does not have a valid sojourn distribution. Check your matrix or vector d\n")
+    if(round(sum(sojourn_one_state$d),10) != 1){
+      warning("The provided sojourn distributions do not sum to 1 for at least one state. Sojourn distributions are normalized so that they sum to 1.")
+      sojourn_one_state$d = sojourn_one_state$d/sum(sojourn_one_state$d)
+    }
+  }else{
+    for(k in 2:length(sojourn_one_state)){
+      if(length(sojourn_one_state[[k]]) != 1){
+        warning(paste0("Sojourn parameter '",names(sojourn)[k],"' is longer than one. Taking the first value only.\n"))
+        sojourn_one_state[[k]]  = sojourn_one_state[[k]][1]
+      }
+      if(is.na(sojourn_one_state[[k]]))
+        stop("NA values found in the sojourn distribution parameters.\n")
+    }
+  }
+  sojourn_one_state
+}
+
+
+# .check_nonparametric_sojourn_all_states = function(sojourn, J){
+#   if(is.null(sojourn$d) || (ncol(sojourn$d) != J))
+#     stop("Non-parametric sojourn distributions must be specified by a matrix d: sojourn = list(type = 'nonparametric', d = ...matrix of dim M x J...) where M is the longuest sojourn duration. \n")
+#   if(any(is.na(sojourn$d))) stop("NA values found in the sojourn distribution matrix d.\n")
+#   if(any(colSums(sojourn$d) == 0)) stop("At least one state does not have a valid sojourn distribution. Check your matrix d\n")
+#   if(any(round(colSums(sojourn$d),10) != 1)){
+#     warning("The provided sojourn distributions do not sum to 1 for at least one state. Sojourn distributions are normalized so that they sum to 1.")
+#     sojourn$d = t(t(sojourn$d)/colSums(sojourn$d))
+#   }
+#   sojourn
+# }
+
+
 
 
 .check_marg_em_probs = function(marg_em_probs, J){
@@ -175,15 +310,6 @@
   state_colors
 }
 
-.check_augment_data_fun = function(augment_data_fun){
-  if(is.null(augment_data_fun)){
-    augment_data_fun = function(X, get_var_names_only = FALSE) if(get_var_names_only) c() else data.frame()
-  }else{
-    # TODO : test that the function has valid "get_var_names_only" and "get_var_types_only" options.
-  }
-  augment_data_fun
-}
-
 
 ######### CHECK FOR PREDICTIONS AND FITS #############
 
@@ -192,17 +318,37 @@
   if(class(model) != "hsmm") stop("model must be of class 'hsmm'.")
 
   model$J = .check_J(model$J)
-  model$init = .check_init(model$init, model$J)
-  model$transition = .check_transitions(model$transition, model$J)
   model$state_names = .check_state_names(model$state_names, model$J)
   model$state_colors = .check_state_colors(model$state_colors, model$J)
-  model$sojourn = .check_sojourn(model$sojourn, model$J)
-  model$augment_data_fun = .check_augment_data_fun(model$augment_data_fun)
 
-  # TODO
-  # model$obs_probs = .check_model_obs_probs_matrix(model)
+  model$init = .check_init(model$init, model$J)
+  model$transition = .check_transitions(model$transition, model$J)
+
+  model$sojourn = .check_sojourn(model$sojourn, model$J, model$state_names)
+
+  model$obs_probs = .check_model_obs_probs(model)
+  model$b = .check_model_b(model)
 
   model
+}
+
+.check_model_obs_probs = function(model){
+  obs_probs = model$obs_probs
+  if(any(is.na(obs_probs$p))) stop("NAs found in the emission probabilities (model$obs_probs$p).\n")
+  sum_per_state = obs_probs %>% dplyr::group_by(state) %>%
+    dplyr::summarise(sum_prob = sum(p), .groups = "drop") %>%
+    dplyr::select(sum_prob) %>% unlist()
+  if(any(round(sum_per_state, 10) != 1)) stop("Emission probabilities (model$obs_probs$p) do not sum to 1 for all states.\n")
+  obs_probs
+}
+
+.check_model_b = function(model){
+  b = model$b
+  b_mat = b %>% dplyr::select(dplyr::all_of(paste0("p_",1:model$J)))
+  if(any(is.na(b_mat))) stop("NAs found in the emission probabilities (model$b).\n")
+  sum_per_state = colSums(b_mat)
+  if(any(round(sum_per_state, 10) != 1)) stop("Emission probabilities (model$obs_probs$p) do not sum to 1 for all states.\n")
+  b
 }
 
 
@@ -232,7 +378,6 @@
 
   # select only the columns we need
   var_names = names(model$marg_em_probs)
-  if(.is_data_augmented(data = data, model = model)) var_names = c(var_names,model$augment_data_fun(X = NULL, get_var_names_only = TRUE)) # stringr::str_c(var_names,"_M")
   data = data %>% dplyr::select(seq_id, t, dplyr::all_of(var_names))
 
   # checking the type and values of each variable
@@ -242,10 +387,6 @@
 
 
 
-.is_data_augmented = function(data, model = model){
-  required_cols = c(names(model$marg_em_probs),  model$augment_data_fun(X = NULL, get_var_names_only = TRUE)) # str_c(names(model$marg_em_probs),"_M"),
-  ifelse(all(required_cols %in% colnames(data)), TRUE, FALSE)
-}
 
 .check_ground_truth = function(ground_truth, model, X){
 

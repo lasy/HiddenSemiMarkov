@@ -13,8 +13,6 @@ specify_hsmm(
   sojourn,
   marg_em_probs,
   censoring_probs = NULL,
-  augment_data_fun = NULL,
-  sim_seed = NULL,
   verbose = FALSE
 )
 }
@@ -45,8 +43,6 @@ An optional third element can be added to the variable list: \code{viz-options}.
 This element is a list in which each element specifies a given visualization option.
 Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
 See function \code{plot_hsmm_seq()} for visualization of observation sequences.}
-
-\item{augment_data_fun}{(optional) a function that takes as argument a matrix of observation (see xxx TODO for how observations must be formatted) and returns a matrix of augmented variables. Additionally, this function must have xxx TODO xxx explain the requirements.}
 
 \item{verbose}{a logical (default = \code{FALSE}). Should the function print additional information?}
 

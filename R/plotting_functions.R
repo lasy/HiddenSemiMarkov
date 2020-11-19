@@ -146,7 +146,9 @@ plot_hsmm_seq = function(X, model,
       if(stringr::str_length(state_label)>0) state_label = stringr::str_c("states (",state_label,")") else state_label = "states"
 
       g_state = g_base +
-        geom_tile(data = df, aes(y = 1, fill = state_col, alpha = state_alpha))+ #  width = 1, height = 1,
+        geom_tile(data = df,
+                  aes(y = 1, fill = state_col, alpha = state_alpha),
+                  na.rm = TRUE)+ #  width = 1, height = 1,
         scale_alpha(limits = c(0,1), range = c(0, 1)) +
         scale_fill_identity("",
                             guide = "legend",
@@ -183,7 +185,8 @@ plot_hsmm_seq = function(X, model,
         dplyr::mutate(color = model$marg_em_probs[[var]]$viz_options$colors[Y %>% as.numeric()])
 
       g_var = g_var +
-        geom_tile(data = X_var, aes(y = y, fill = color)) +
+        geom_tile(data = X_var, aes(y = y, fill = color),
+                  na.rm = TRUE) +
         scale_fill_identity("",
                             guide = "legend",
                             labels = model$marg_em_probs[[var]]$params$values,
@@ -196,7 +199,9 @@ plot_hsmm_seq = function(X, model,
       color_max = model$marg_em_probs[[var]]$viz_options$color_max
       max_y = max(model$marg_em_probs[[var]]$params$size)
       g_var = g_var +
-        geom_tile(data = X_var, aes(y = y, fill = Y)) +
+        geom_tile(data = X_var,
+                  aes(y = y, fill = Y),
+                  na.rm = TRUE) +
         scale_fill_gradient("", low = "gray", high = color_max, na.value = "transparent",
                             breaks = 0:max_y,
                             guide = guide_colourbar(nbin = max_y+1, raster = FALSE, frame.colour = "white"))
@@ -215,14 +220,21 @@ plot_hsmm_seq = function(X, model,
 
       if(compact_view){
         g_var = g_var +
-          geom_tile(data = X_var, aes(y = 1, fill = Y)) +
+          geom_tile(data = X_var,
+                    aes(y = 1, fill = Y),
+                    na.rm = TRUE) +
           scale_fill_gradient2(low = color_low, high = color_high, mid = color_mid,
                                midpoint = mid_value, na.value = "transparent")
         this_var_rel_height = 1
       }else{
         g_var = g_var +
-          geom_line(data = X_var, aes(y = y, col = Y)) +
-          geom_point(data = X_var, aes(y = y, col = Y), size = 0.5) +
+          geom_line(data = X_var,
+                    aes(y = y, col = Y),
+                    na.rm = TRUE) +
+          geom_point(data = X_var,
+                     aes(y = y, col = Y),
+                     size = 0.5,
+                     na.rm = TRUE) +
           scale_color_gradient2(low = color_low, high = color_high, mid = color_mid,
                                 midpoint = mid_value, na.value = "transparent")
 
@@ -238,14 +250,21 @@ plot_hsmm_seq = function(X, model,
 
       if(compact_view){
         g_var = g_var +
-          geom_tile(data = X_var, aes(y = 1, fill = Y)) +
+          geom_tile(data = X_var,
+                    aes(y = 1, fill = Y),
+                    na.rm = TRUE) +
           scale_fill_gradient2(low = color_low, high = color_high, mid = color_mid,
                                midpoint = mid_value, na.value = "transparent")
         this_var_rel_height = 1
       }else{
         g_var = g_var +
-          geom_line(data = X_var, aes(y = y, col = Y)) +
-          geom_point(data = X_var, aes(y = y, col = Y), size = 0.5) +
+          geom_line(data = X_var,
+                    aes(y = y, col = Y),
+                    na.rm = TRUE) +
+          geom_point(data = X_var,
+                     aes(y = y, col = Y),
+                     size = 0.5,
+                     na.rm = TRUE) +
           scale_y_continuous(limits = c(0,1))+
           scale_color_gradient2(low = color_low, high = color_high, mid = color_mid,
                                 midpoint = mid_value, na.value = "transparent")
@@ -306,9 +325,12 @@ plot_hsmm_state_colors = function(model){
 
 }
 
-#' Visualizes the marginal emission distribution of a specified \code{hsmm} model.
+
+
+
+#' Visualizes the marginal emission distribution of a \code{hsmm} model.
 #'
-#' @param model a \code{hsmm} object specifying the model for which the marginal emission distribution should be visualized.
+#' @param model a \code{hsmm} object specifying the model for which the marginal emission distributions should be visualized.
 #' @param show_missing_prob (optional) a \code{logical} specifying if transparency should be used to reflect how likely variables are going to be missing in each state.
 #' @param verbose (optional) a \code{logical} specifying if the internal steps of the function should be printed.
 #'
@@ -323,116 +345,191 @@ plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE
   state_names = model$state_names
   state_cols = model$state_colors
 
-  DF_prob = data.frame()
-  DF_missing_prob = data.frame()
-  var_value_levels = data.frame(ix = 0, value = "init", stringsAsFactors = FALSE)
-  cols = c("state","variable", "value","prob")
+  obs_probs = model$obs_probs
 
-  for(var in X_names){
-    dist_type = model$marg_em_probs[[var]]$type
-    if(verbose) cat(var, "\n")
-    if(dist_type == "non-par"){
-      x = model$marg_em_probs[[var]]$params$values
-      df_prob = model$marg_em_probs[[var]]$params$probs %>%
-        as.data.frame() %>%
-        magrittr::set_colnames(state_names) %>%
-        dplyr::mutate(value = x) %>%
-        tidyr::pivot_longer(cols = -value, names_to = "state", values_to = "prob")
-    }else if(dist_type == "norm"){
-      means = model$marg_em_probs[[var]]$params$mean
-      sds = model$marg_em_probs[[var]]$params$sd
-      from = min(means-2.5*sds); to = max(means+2.5*sds)
-      x = axisTicks(c(from, to), log = FALSE, nint = 10)
-      df_prob = data.frame(state = state_names, mean = means, sd = sds)
-      df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
-      df_prob = df_prob %>%
-        dplyr::mutate(value = rep(x, model$J),
-                      prob = dnorm(value, mean = mean, sd = sd))
-    }else if(dist_type == "beta"){
-      shape1s = model$marg_em_probs[[var]]$params$shape1
-      shape2s = model$marg_em_probs[[var]]$params$shape2
-      from = 0; to = 1
-      x = axisTicks(c(from, to), log = FALSE, nint = 10)
-      df_prob = data.frame(state = state_names, shape1 = shape1s, shape2 = shape2s)
-      df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
-      df_prob = df_prob %>%
-        dplyr::mutate(value = rep(x, model$J),
-                      prob = dbeta(value, shape1 = shape1, shape2 = shape2))
-    }else if(dist_type == "binom"){
-      sizes = model$marg_em_probs[[var]]$params$size
-      probs = model$marg_em_probs[[var]]$params$prob
-      x = 0:max(sizes)
-      df_prob = data.frame(state = state_names, size = sizes, p = probs)
-      df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
-      df_prob = df_prob %>%
-        dplyr::mutate(value = rep(x, model$J),
-                      prob = dbinom(value, size = size, prob = p))
+  df = purrr::map_dfr(
+    .x = X_names,
+    .f = function(var){
+      this_var_marg_dist =
+        obs_probs %>%
+        dplyr::select(state, dplyr::all_of(var), p) %>%
+        dplyr::group_by(.dots = c("state", dplyr::all_of(var))) %>%
+        dplyr::summarise(p = sum(p), .groups = "drop")
+      this_var_marg_dist$var_name = var
+      this_var_marg_dist$var_value = this_var_marg_dist[,var] %>% unlist()
+      this_var_marg_dist = this_var_marg_dist %>%
+        dplyr::arrange(state, var_value) %>%
+        dplyr::mutate(var_value = var_value %>% as.character()) %>%
+        dplyr::select(state, var_name, var_value, p)
+
+      this_var_df = this_var_marg_dist %>%
+        dplyr::filter(!is.na(var_value)) %>%
+        dplyr::left_join(.,
+                         this_var_marg_dist %>%
+                           dplyr::filter(is.na(var_value)) %>%
+                           dplyr::rename(missing_prob = p) %>%
+                           dplyr::select(-var_value),
+                         by = c("state", "var_name")) %>%
+        dplyr::group_by(state) %>%
+        dplyr::mutate(sum_p = sum(p),
+                      p = p/sum_p) %>%
+        dplyr::select(-sum_p) %>%
+        dplyr::ungroup()
+
+      this_var_df
     }
-    # trick to keep the levels
-    nix = last(var_value_levels$ix)
-    ix = (nix+1):(nix+length(x))
-    this_var_value_levels = data.frame(ix = ix, value = x, stringsAsFactors = FALSE)
-    var_value_levels = rbind(var_value_levels, this_var_value_levels)
+  )
 
-    df_prob = df_prob %>%
-      dplyr::mutate(variable = var,
-                    value = this_var_value_levels$ix[match(value, this_var_value_levels$value)]) %>%
-      dplyr::select(all_of(cols))
-    DF_prob = rbind(DF_prob, df_prob)
+  df = df %>%
+    dplyr::mutate(var_value_fct = paste0(var_name,'_',var_value),
+                  var_value_fct = var_value_fct %>%
+                    factor(., levels = unique(var_value_fct)),
+                  state_name = state_names[state])
 
-    # missing probs
-    if(show_missing_probs){
-      df_missing_prob = data.frame(state = state_names %>% factor(),
-                                   variable = var,
-                                   missing_prob = model$censoring_probs$p + (1 - model$censoring_probs$p) *  model$censoring_probs$q[which(X_names == var), ],
-                                   stringsAsFactors = FALSE)
-    }else{
-      df_missing_prob = data.frame()
-    }
-    DF_missing_prob = rbind(DF_missing_prob, df_missing_prob)
-  }
+  x_scale = df %>%
+    select(var_value, var_value_fct) %>%
+    distinct()
 
-  DF_prob = DF_prob %>%
-    dplyr::mutate(state = factor(state, levels = state_names),
-                  original_prob = prob)
+  if(!show_missing_probs)
+    df$missing_prob = 0
 
-  DF_prob = DF_prob %>%
-    dplyr::group_by(variable) %>%
-    dplyr::mutate(max_prob = max(original_prob),
-                  prob = original_prob/max_prob)
-
-  if(show_missing_probs){
-    DF_prob = DF_prob %>% dplyr::full_join(., DF_missing_prob, by = c("state", "variable"))
-    DF_prob = DF_prob %>% dplyr::mutate(observed_prob = 1-missing_prob)
-  }else{
-    DF_prob = DF_prob %>% dplyr::mutate(observed_prob = 1)
-  }
-
-
-
-  g_prob = ggplot(DF_prob, aes(x = value, y = prob, fill = state, alpha = observed_prob))
-  g_prob = g_prob +
-    facet_grid(state ~ variable, scale = "free_x", space = "free")+
-    scale_fill_manual(values = state_cols)+
-    guides(fill = FALSE)+
-    ylab("")+
-    scale_x_continuous(breaks = var_value_levels$ix, labels = var_value_levels$value, expand = c(0,0))+
-    scale_alpha_continuous("Probability of being observed", range = c(0.2,1), limits = c(0,1))+
-    geom_bar(stat = "identity", orientation = "x") +
+  g = ggplot(df, aes(x = var_value_fct, y = p, alpha = 1-missing_prob, fill = state_name)) +
+    geom_bar(stat = "identity") +
+    scale_x_discrete(breaks = x_scale$var_value_fct, labels = x_scale$var_value) +
+    xlab("") +
+    ylab("probability") +
+    scale_fill_manual(values = state_cols, guide = "none") +
+    scale_alpha("probability of being observed", range = c(0,1), limits = c(0,1),
+                guide = ifelse(show_missing_probs,"legend","none")) +
+    facet_grid(state ~ var_name, scale = "free", space = "free") +
     theme_set(theme_minimal()) +
-    theme(axis.title.y = element_blank(),
-          axis.text.y = element_blank(),
-          axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-          panel.grid.minor = element_blank(),
-          panel.spacing.x = unit(30,unit = "pt"),
-          strip.background = element_rect(fill = "gray90", color = "transparent"),
-          strip.text.y = element_text(angle = 0, hjust = 0),
-          legend.position = "bottom")
-
-
-  g = g_prob
+    theme(legend.position = "bottom",
+          axis.text.x = element_text(angle = 90, hjust = 1),
+          strip.background = element_rect(color = NA, fill = "gray90"))
   g
 }
+
+
+
+
+
+
+# plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE){
+#
+#   X_names = names(model$marg_em_probs)
+#   state_names = model$state_names
+#   state_cols = model$state_colors
+#
+#   DF_prob = data.frame()
+#   DF_missing_prob = data.frame()
+#   var_value_levels = data.frame(ix = 0, value = "init", stringsAsFactors = FALSE)
+#   cols = c("state","variable", "value","prob")
+#
+#   for(var in X_names){
+#     dist_type = model$marg_em_probs[[var]]$type
+#     if(verbose) cat(var, "\n")
+#     if(dist_type == "non-par"){
+#       x = model$marg_em_probs[[var]]$params$values
+#       df_prob = model$marg_em_probs[[var]]$params$probs %>%
+#         as.data.frame() %>%
+#         magrittr::set_colnames(state_names) %>%
+#         dplyr::mutate(value = x) %>%
+#         tidyr::pivot_longer(cols = -value, names_to = "state", values_to = "prob")
+#     }else if(dist_type == "norm"){
+#       means = model$marg_em_probs[[var]]$params$mean
+#       sds = model$marg_em_probs[[var]]$params$sd
+#       from = min(means-2.5*sds); to = max(means+2.5*sds)
+#       x = axisTicks(c(from, to), log = FALSE, nint = 10)
+#       df_prob = data.frame(state = state_names, mean = means, sd = sds)
+#       df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
+#       df_prob = df_prob %>%
+#         dplyr::mutate(value = rep(x, model$J),
+#                       prob = dnorm(value, mean = mean, sd = sd))
+#     }else if(dist_type == "beta"){
+#       shape1s = model$marg_em_probs[[var]]$params$shape1
+#       shape2s = model$marg_em_probs[[var]]$params$shape2
+#       from = 0; to = 1
+#       x = axisTicks(c(from, to), log = FALSE, nint = 10)
+#       df_prob = data.frame(state = state_names, shape1 = shape1s, shape2 = shape2s)
+#       df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
+#       df_prob = df_prob %>%
+#         dplyr::mutate(value = rep(x, model$J),
+#                       prob = dbeta(value, shape1 = shape1, shape2 = shape2))
+#     }else if(dist_type == "binom"){
+#       sizes = model$marg_em_probs[[var]]$params$size
+#       probs = model$marg_em_probs[[var]]$params$prob
+#       x = 0:max(sizes)
+#       df_prob = data.frame(state = state_names, size = sizes, p = probs)
+#       df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
+#       df_prob = df_prob %>%
+#         dplyr::mutate(value = rep(x, model$J),
+#                       prob = dbinom(value, size = size, prob = p))
+#     }
+#     # trick to keep the levels
+#     nix = last(var_value_levels$ix)
+#     ix = (nix+1):(nix+length(x))
+#     this_var_value_levels = data.frame(ix = ix, value = x, stringsAsFactors = FALSE)
+#     var_value_levels = rbind(var_value_levels, this_var_value_levels)
+#
+#     df_prob = df_prob %>%
+#       dplyr::mutate(variable = var,
+#                     value = this_var_value_levels$ix[match(value, this_var_value_levels$value)]) %>%
+#       dplyr::select(all_of(cols))
+#     DF_prob = rbind(DF_prob, df_prob)
+#
+#     # missing probs
+#     if(show_missing_probs){
+#       df_missing_prob = data.frame(state = state_names %>% factor(),
+#                                    variable = var,
+#                                    missing_prob = model$censoring_probs$p + (1 - model$censoring_probs$p) *  model$censoring_probs$q[which(X_names == var), ],
+#                                    stringsAsFactors = FALSE)
+#     }else{
+#       df_missing_prob = data.frame()
+#     }
+#     DF_missing_prob = rbind(DF_missing_prob, df_missing_prob)
+#   }
+#
+#   DF_prob = DF_prob %>%
+#     dplyr::mutate(state = factor(state, levels = state_names),
+#                   original_prob = prob)
+#
+#   DF_prob = DF_prob %>%
+#     dplyr::group_by(variable) %>%
+#     dplyr::mutate(max_prob = max(original_prob),
+#                   prob = original_prob/max_prob)
+#
+#   if(show_missing_probs){
+#     DF_prob = DF_prob %>% dplyr::full_join(., DF_missing_prob, by = c("state", "variable"))
+#     DF_prob = DF_prob %>% dplyr::mutate(observed_prob = 1-missing_prob)
+#   }else{
+#     DF_prob = DF_prob %>% dplyr::mutate(observed_prob = 1)
+#   }
+#
+#
+#
+#   g_prob = ggplot(DF_prob, aes(x = value, y = prob, fill = state, alpha = observed_prob))
+#   g_prob = g_prob +
+#     facet_grid(state ~ variable, scale = "free_x", space = "free")+
+#     scale_fill_manual(values = state_cols)+
+#     guides(fill = FALSE)+
+#     ylab("")+
+#     scale_x_continuous(breaks = var_value_levels$ix, labels = var_value_levels$value, expand = c(0,0))+
+#     scale_alpha_continuous("Probability of being observed", range = c(0.2,1), limits = c(0,1))+
+#     geom_bar(stat = "identity", orientation = "x") +
+#     theme_set(theme_minimal()) +
+#     theme(axis.title.y = element_blank(),
+#           axis.text.y = element_blank(),
+#           axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+#           panel.grid.minor = element_blank(),
+#           panel.spacing.x = unit(30,unit = "pt"),
+#           strip.background = element_rect(fill = "gray90", color = "transparent"),
+#           strip.text.y = element_text(angle = 0, hjust = 0),
+#           legend.position = "bottom")
+#
+#
+#   g = g_prob
+#   g
+# }
 
 
 

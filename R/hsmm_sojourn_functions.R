@@ -11,12 +11,12 @@
 available_sojourn_dist = function(){
   available_sojourn = rbind(
     data.frame(distribution_type = "nonparametric", parameters = "d", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "ksmoothed-nonparametric", parameters = "d", stringsAsFactors = FALSE),
+    data.frame(distribution_type = "ksmoothed_nonparametric", parameters = "d", stringsAsFactors = FALSE),
     data.frame(distribution_type = "gamma", parameters = "shape, scale", stringsAsFactors = FALSE),
     data.frame(distribution_type = "poisson", parameters = "shift, lambda", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "lnorm", parameters = "meanlog, s.dlog", stringsAsFactors = FALSE),
+    data.frame(distribution_type = "lnorm", parameters = "meanlog, sdlog", stringsAsFactors = FALSE),
     data.frame(distribution_type = "logarithmic", parameters = "shape", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "nbinom", parameters = "size, mu (or prob), shift", stringsAsFactors = FALSE)
+    data.frame(distribution_type = "nbinom", parameters = "size, mu or prob, shift", stringsAsFactors = FALSE)
   )
   available_sojourn
 }
@@ -28,32 +28,90 @@ available_sojourn_dist = function(){
 .get_longest_sojourn = function(model){
 
   # check sojourn
-  model$sojourn = .check_sojourn(model$sojourn, model$J)
+  model$sojourn = .check_sojourn(model$sojourn, model$J, model$state_names)
 
-  # shortcut
-  sojourn_distribution = model$sojourn$type
   p = 0.99
+  Ms = purrr::map_int(
+    .x = model$sojourn,
+    .f = .get_longest_sojourn_for_state_j,
+    p = p
+  )
+  M = max(Ms)
+  M
+}
+
+
+.get_longest_sojourn_for_state_j = function(state_sojourn, p){
+  # shortcut
+  sojourn_distribution = state_sojourn$type
 
   # finding M
-  if(sojourn_distribution == "nonparametric" | sojourn_distribution == "ksmoothed-nonparametric" ){
-    M = max(apply(model$sojourn$d, 2, function(x) max(which(x > 0))))
+  if(sojourn_distribution == "nonparametric" | sojourn_distribution == "ksmoothed_nonparametric" ){
+    M = max(which(state_sojourn$d > 0))
   }else if(sojourn_distribution == "poisson"){
-    M = max(model$sojourn$shift + qpois(p = p, lambda = model$sojourn$lambda))
+    M = max(state_sojourn$shift + qpois(p = p, lambda = state_sojourn$lambda))
   }else if(sojourn_distribution == "lnorm"){
-    M = max(qlnorm(p = p, meanlog = model$sojourn$meanlog , sdlog = model$sojourn$s.dlog))
+    M = max(qlnorm(p = p, meanlog = state_sojourn$meanlog , sdlog = state_sojourn$sdlog))
   }else if(sojourn_distribution == "gamma"){
-    M = max(qgamma(p = p, shape = model$sojourn$shape , scale = model$sojourn$scale))
+    M = max(qgamma(p = p, shape = state_sojourn$shape , scale = state_sojourn$scale))
   }else if(sojourn_distribution == "logarithmic"){
     M = 10
-    while(all(.dlog(M,model$sojourn$shape) > 0.01)){M = M*2}
+    while(all(.dlog(M,state_sojourn$shape) > 0.01)){M = M*2}
   }else if(sojourn_distribution %in% c("nbinom")){
-    M = max(qnbinom(p = p, mu = model$sojourn$mu ,prob = model$sojourn$prob))
+    if(is.null(state_sojourn$mu)) M = max(qnbinom(p = p, prob = state_sojourn$prob))
+    if(is.null(state_sojourn$mu))  M = max(qnbinom(p = p, mu = state_sojourn$mu))
   }else{
     stop("This sojourn distribution is currently not supported.")
   }
 
-  M
+  ceiling(M) %>% as.integer()
 }
+
+#' @export
+.build_d_from_sojourn_dist <- function(model,M) {
+  # shortcuts
+  J = model$J
+
+  d = purrr::map_dfc(
+    .x = 1:J,
+    .f = function(j){
+      sojourn_this_state = model$sojourn[[j]]
+
+      if(sojourn_this_state$type %in% c("nonparametric","ksmoothed_nonparametric")){
+        this_state_d = sojourn_this_state$d
+        if(length(this_state_d)<M) this_state_d = c(this_state_d, rep(0, M - length(this_state_d)))
+        if(length(this_state_d)>M) this_state_d = head(this_state_d, M)
+      }
+
+      if(sojourn_this_state$type == "gamma")
+        this_state_d = dgamma(1:M, shape = sojourn_this_state$shape, scale = sojourn_this_state$scale)
+
+      if(sojourn_this_state$type == "poisson"){
+        if(is.null(sojourn_this_state$shift)) sojourn_this_state$shift = 1
+        this_state_d = .dpois.hsmm.sojourn(1:M,sojourn_this_state$lambda,sojourn_this_state$shift)
+      }
+
+      if(sojourn_this_state$type == "lnorm")
+        this_state_d = dlnorm(1:M, meanlog = sojourn_this_state$meanlog, sdlog = sojourn_this_state$sdlog)
+
+      if(sojourn_this_state$type == "logarithmic")
+        this_state_d = .dlog(1:M, sojourn_this_state$shape)
+
+      if(sojourn_this_state$type == "nbinom"){
+        if(is.null(sojourn_this_state$shift)) sojourn_this_state$shift = 1
+        if(is.null(sojourn_this_state$mu))
+          this_state_d = .dnbinom.hsmm.sojourn(1:M, size = sojourn_this_state$size, prob = sojourn_this_state$prob, shift = sojourn_this_state$shift)
+        if(is.null(sojourn_this_state$prob))
+          this_state_d = .dnbinom.hsmm.sojourn(1:M, size = sojourn_this_state$size, mu = sojourn_this_state$mu, shift = sojourn_this_state$shift)
+      }
+
+      if(sum(this_state_d) != 0) this_state_d = this_state_d/sum(this_state_d) else this_state_d = 0*this_state_d
+      this_state_d = data.frame(this_state_d) %>% magrittr::set_colnames(j)
+    }
+  )
+  d %>% as.matrix()
+}
+
 
 
 
@@ -168,14 +226,14 @@ gammafit = function(x , wt=NULL ) {
 
 # .get_minimum_sojourn = function(model = model){
 #   sojourn.distribution = model$sojourn$type
-#   if(sojourn.distribution %in% c("nonparametric","ksmoothed-nonparametric")){
+#   if(sojourn.distribution %in% c("nonparametric","ksmoothed_nonparametric")){
 #     M = max(apply(model$sojourn$d, 2, function(x) max(which(x > 0))))
 #   }else if(sojourn.distribution == "gamma"){
 #     M = max(model$sojourn$shape * model$sojourn$scale + 3 * model$sojourn$shape^0.5 * model$sojourn$scale) # mean + 3 sd
 #   }else if(sojourn.distribution == "poisson"){
 #     M = max(model$sojourn$shift + model$sojourn$lambda + 3 * model$sojourn$lambda^0.5 ) # shift +  mean + 3 sd
 #   }else if(sojourn.distribution == "lnorm"){
-#     M = max(model$sojourn$meanlog + 3*model$sojourn$s.dlog ) #  mean + 3 sd #CHECK THIS ONE
+#     M = max(model$sojourn$meanlog + 3*model$sojourn$sdlog ) #  mean + 3 sd #CHECK THIS ONE
 #   }else if(sojourn.distribution == "logarithmic"){
 #     M = max(1 + 3*10*model$sojourn$shape^2 ) #  mean + 3 sd  #CHECK THIS ONE
 #   }else if(sojourn.distribution == "nbinom"){

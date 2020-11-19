@@ -133,14 +133,6 @@ available_marginal_emission_viz_options = function(){
     if(continuous_var_binned & (model$marg_em_probs[[var]]$type %in% c("norm","beta"))) lv[[var]] = levels(cut(lv[[var]], breaks = model$marg_em_probs[[var]]$breaks))
     if(with_missing & (any(model$censoring_probs$p > 0) | any(model$censoring_probs$q > 0))) lv[[var]] = c(lv[[var]], NA) #TODO: potentially change that line because we may still want to include the NAs, even if no missing prob has been specified
   }
-  if(length(model$augment_data_fun(get_var_names_only = TRUE))>0){
-    augm_var = model$augment_data_fun(get_var_names_only = TRUE)
-    augm_var_val = model$augment_data_fun(get_var_types_only = TRUE)
-    for(var in augm_var){
-      if(augm_var_val[[var]]$type == "cat") lv[[var]] = augm_var_val[[var]]$values
-      if(augm_var_val[[var]]$type != "cat") lv[[var]] = levels(cut(seq(0,1,by = 0.2), breaks = c(-Inf, seq(0.2,0.8,by = 0.2),Inf)))
-    }
-  }
   max_n = max(lengths(lv))
   all_levels = data.frame(row.names = 1:max_n, stringsAsFactors = FALSE)
   for(var in names(lv)) all_levels = cbind(all_levels, var = rep(lv[[var]],max_n)[1:max_n])
@@ -150,65 +142,51 @@ available_marginal_emission_viz_options = function(){
 }
 
 
-.get_marginal_prob = function(var_name, model, Xsim){
-  if(var_name %in% names(model$marg_em_probs)){ # if var_name is one of the specified variable
-    if(model$marg_em_probs[[var_name]]$type == "norm"){ # we need to discretize the probabilities
-      # first, we define a continuous support that will cover the whole possible value range
-      x_continuous = seq(min(model$marg_em_probs[[var_name]]$params$mean - 5 * model$marg_em_probs[[var_name]]$params$sd),
-                         max(model$marg_em_probs[[var_name]]$params$mean + 5 * model$marg_em_probs[[var_name]]$params$sd),
-                         len = 10000)
-      marg_prob =
-        tidyr::expand_grid(x_continuous = x_continuous,
-                           state = 1:model$J) %>% # we expand for each state
-        dplyr::mutate(x = cut(x_continuous, breaks = model$marg_em_probs[[var_name]]$breaks), # we discretize the support
-                      d = dnorm(x = x_continuous, # we get the probability density
-                                mean = model$marg_em_probs[[var_name]]$params$mean[state],
-                                sd = model$marg_em_probs[[var_name]]$params$sd[state])) %>%
-        dplyr::group_by(state, x) %>% dplyr::summarize(prob = sum(d), .groups = "drop") %>% # we sum the densities
-        dplyr::group_by(state) %>% dplyr::mutate(tot = sum(prob), prob = prob/tot) %>% dplyr::select(-tot) # we normalize by state
-    }
-    if(model$marg_em_probs[[var_name]]$type == "binom"){
-      marg_prob =
-        tidyr::expand_grid(state = 1:model$J,
-                           x = 0:max(model$marg_em_probs[[var_name]]$params$size)) %>%
-        dplyr::mutate(prob = dbinom(x = x,
-                                    size = model$marg_em_probs[[var_name]]$params$size[state],
-                                    prob = model$marg_em_probs[[var_name]]$params$prob[state]))
-    }
-    if(model$marg_em_probs[[var_name]]$type == "non-par"){
-      marg_prob =
-        model$marg_em_probs[[var_name]]$params$probs %>%
-        as.data.frame() %>%
-        magrittr::set_colnames(1:model$J) %>%
-        dplyr::mutate(x = model$marg_em_probs[[var_name]]$params$values) %>%
-        tidyr::pivot_longer(cols = 1:model$J, names_to = "state", values_to = "prob") %>%
-        dplyr::mutate(state = as.integer(state))
-    }
-    if(model$marg_em_probs[[var_name]]$type == "beta"){ # we need to discretize the probabilities
-      # first, we define a continuous support that will cover the whole possible value range
-      x_continuous = seq(0,1,len = 10000)
-      marg_prob =
-        tidyr::expand_grid(x_continuous = x_continuous,
-                           state = 1:model$J) %>% # we expand for each state
-        dplyr::mutate(x = cut(x_continuous, breaks = model$marg_em_probs[[var_name]]$breaks), # we discretize the support
-                      d = dbeta(x = x_continuous, # we get the probability density
-                                shape1 = model$marg_em_probs[[var_name]]$params$shape1[state],
-                                shape2 = model$marg_em_probs[[var_name]]$params$shape2[state])) %>%
-        dplyr::group_by(state, x) %>% dplyr::summarize(prob = sum(d), .groups = "drop") %>% # we sum the densities
-        dplyr::group_by(state) %>% dplyr::mutate(tot = sum(prob), prob = prob/tot) %>% dplyr::select(-tot) # we normalize by state
-    }
-  }else{ # var_name is an augmented variable
+.get_marginal_prob = function(var_name, model){
+  if(model$marg_em_probs[[var_name]]$type == "norm"){ # we need to discretize the probabilities
+    # first, we define a continuous support that will cover the whole possible value range
+    x_continuous = seq(min(model$marg_em_probs[[var_name]]$params$mean - 5 * model$marg_em_probs[[var_name]]$params$sd),
+                       max(model$marg_em_probs[[var_name]]$params$mean + 5 * model$marg_em_probs[[var_name]]$params$sd),
+                       len = 10000)
     marg_prob =
-      Xsim %>%
-      dplyr::select(dplyr::all_of(c("state",var_name))) %>%
-      magrittr::set_colnames(c("state","x")) %>%
-      dplyr::filter(!is.na(x)) %>%
-      dplyr::group_by(state, x) %>%
-      dplyr::summarise(n = n(), .groups = "drop") %>%
-      dplyr::group_by(state) %>%
-      dplyr::mutate(prob = n/sum(n)) %>%
-      dplyr::ungroup() %>%
-      dplyr::select(state, x, prob)
+      tidyr::expand_grid(x_continuous = x_continuous,
+                         state = 1:model$J) %>% # we expand for each state
+      dplyr::mutate(x = cut(x_continuous, breaks = model$marg_em_probs[[var_name]]$breaks), # we discretize the support
+                    d = dnorm(x = x_continuous, # we get the probability density
+                              mean = model$marg_em_probs[[var_name]]$params$mean[state],
+                              sd = model$marg_em_probs[[var_name]]$params$sd[state])) %>%
+      dplyr::group_by(state, x) %>% dplyr::summarize(prob = sum(d), .groups = "drop") %>% # we sum the densities
+      dplyr::group_by(state) %>% dplyr::mutate(tot = sum(prob), prob = prob/tot) %>% dplyr::select(-tot) # we normalize by state
+  }
+  if(model$marg_em_probs[[var_name]]$type == "binom"){
+    marg_prob =
+      tidyr::expand_grid(state = 1:model$J,
+                         x = 0:max(model$marg_em_probs[[var_name]]$params$size)) %>%
+      dplyr::mutate(prob = dbinom(x = x,
+                                  size = model$marg_em_probs[[var_name]]$params$size[state],
+                                  prob = model$marg_em_probs[[var_name]]$params$prob[state]))
+  }
+  if(model$marg_em_probs[[var_name]]$type == "non-par"){
+    marg_prob =
+      model$marg_em_probs[[var_name]]$params$probs %>%
+      as.data.frame() %>%
+      magrittr::set_colnames(1:model$J) %>%
+      dplyr::mutate(x = model$marg_em_probs[[var_name]]$params$values) %>%
+      tidyr::pivot_longer(cols = 1:model$J, names_to = "state", values_to = "prob") %>%
+      dplyr::mutate(state = as.integer(state))
+  }
+  if(model$marg_em_probs[[var_name]]$type == "beta"){ # we need to discretize the probabilities
+    # first, we define a continuous support that will cover the whole possible value range
+    x_continuous = seq(0,1,len = 10000)
+    marg_prob =
+      tidyr::expand_grid(x_continuous = x_continuous,
+                         state = 1:model$J) %>% # we expand for each state
+      dplyr::mutate(x = cut(x_continuous, breaks = model$marg_em_probs[[var_name]]$breaks), # we discretize the support
+                    d = dbeta(x = x_continuous, # we get the probability density
+                              shape1 = model$marg_em_probs[[var_name]]$params$shape1[state],
+                              shape2 = model$marg_em_probs[[var_name]]$params$shape2[state])) %>%
+      dplyr::group_by(state, x) %>% dplyr::summarize(prob = sum(d), .groups = "drop") %>% # we sum the densities
+      dplyr::group_by(state) %>% dplyr::mutate(tot = sum(prob), prob = prob/tot) %>% dplyr::select(-tot) # we normalize by state
   }
   marg_prob %>% dplyr::select(state, x, prob)
 }
@@ -217,7 +195,6 @@ available_marginal_emission_viz_options = function(){
 .cut_continuous_var = function(model, X){
   Xp = X
   for(var in names(model$marg_em_probs)) if(model$marg_em_probs[[var]]$type %in% c("norm","beta")) Xp[,var] = X[,var] %>% unlist() %>% cut(., breaks = model$marg_em_probs[[var]]$breaks)
-  for(var in model$augment_data_fun(get_var_names_only = TRUE)) if(typeof(X[,var]) != "integer") Xp[,var] = X[,var] %>% unlist() %>% cut(., breaks = c(-Inf, 0.2,0.4,0.6,0.8,Inf))
   Xp
 }
 
@@ -227,7 +204,8 @@ available_marginal_emission_viz_options = function(){
   for(var in names(model$marg_em_probs)){
     if(model$marg_em_probs[[var]]$type %in% c("norm", "beta")){
       breaks = model$marg_em_probs[[var]]$breaks
-      df = data.frame(bin = cut(seq(breaks[2]-1e-10, breaks[length(breaks)-1]+1e-10, len = length(breaks)-1), breaks = breaks),
+      df = data.frame(bin = cut(seq(breaks[2]-1e-10, breaks[length(breaks)-1]+1e-10, len = length(breaks)-1),
+                                breaks = breaks),
                       min = breaks[1:(length(breaks)-1)],
                       max = breaks[2:length(breaks)]) %>%
         dplyr::mutate(min = ifelse(is.infinite(min),max,min),
@@ -235,9 +213,9 @@ available_marginal_emission_viz_options = function(){
         magrittr::set_colnames(c(var, "min","max"))
       Xb = Xb %>% dplyr::left_join(., df, by = var)
       j_not_na = which(!is.na(Xb[,var]))
-      X[,var] = NA
-      X[j_not_na,var] = runif(length(j_not_na), min = Xb$min[j_not_na], max = Xb$max[j_not_na])
-      Xb = Xb %>% dplyr::select(-min, -max)
+      X[, var] = NA_real_
+      X[j_not_na, var] = runif(length(j_not_na), min = Xb$min[j_not_na], max = Xb$max[j_not_na])
+      Xb = Xb %>% dplyr::select(-min, -max) # for the next variable
     }
   }
   X

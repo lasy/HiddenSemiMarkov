@@ -2,12 +2,12 @@
 % Please edit documentation in R/plotting_functions.R
 \name{plot_hsmm_marg_dist}
 \alias{plot_hsmm_marg_dist}
-\title{Visualizes the marginal emission distribution of a specified \code{hsmm} model.}
+\title{Visualizes the marginal emission distribution of a \code{hsmm} model.}
 \usage{
 plot_hsmm_marg_dist(model, show_missing_probs = TRUE, verbose = FALSE)
 }
 \arguments{
-\item{model}{a \code{hsmm} object specifying the model for which the marginal emission distribution should be visualized.}
+\item{model}{a \code{hsmm} object specifying the model for which the marginal emission distributions should be visualized.}
 
 \item{verbose}{(optional) a \code{logical} specifying if the internal steps of the function should be printed.}
 
@@ -17,5 +17,5 @@ plot_hsmm_marg_dist(model, show_missing_probs = TRUE, verbose = FALSE)
 a ggplot object.
 }
 \description{
-Visualizes the marginal emission distribution of a specified \code{hsmm} model.
+Visualizes the marginal emission distribution of a \code{hsmm} model.
 }

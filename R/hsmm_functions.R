@@ -26,7 +26,6 @@
 #' @param global_censoring_prob (optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)
 #' @param state_names (optional) a vector of characters. Names associated to each state. Must be of length \code{J}. If unspecified, the states are numbered from 1 to \code{J}
 #' @param state_colors (optional) a vector of color-specifying characters. Colors associated to each state. Must be of length \code{J}. If unspecified, the colors are picked from the \code{viridis} palette.
-#' @param augment_data_fun (optional) a function that takes as argument a matrix of observation (see xxx TODO for how observations must be formatted) and returns a matrix of augmented variables. Additionally, this function must have xxx TODO xxx explain the requirements.
 #' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
 #'
 #' @keywords HSMM
@@ -80,22 +79,19 @@ specify_hsmm = function(J,
                         sojourn,
                         marg_em_probs,
                         censoring_probs = NULL,
-                        augment_data_fun = NULL,
-                        sim_seed = NULL,
                         verbose = FALSE){
 
   # 1 . checks
   if(verbose) cat("Checking inputs\n")
 
   J = .check_J(J)
-  init = .check_init(init, J)
-  transition = .check_transitions(transition, J)
-  sojourn = .check_sojourn(sojourn, J)
-  marg_em_probs = .check_marg_em_probs(marg_em_probs, J)
-  censoring_probs = .check_censoring_probs(censoring_probs, J, length(marg_em_probs))
   state_names = .check_state_names(state_names, J)
   state_colors = .check_state_colors(state_colors, J)
-  augment_data_fun = .check_augment_data_fun(augment_data_fun)
+  init = .check_init(init, J)
+  transition = .check_transitions(transition, J)
+  sojourn = .check_sojourn(sojourn, J, state_names)
+  marg_em_probs = .check_marg_em_probs(marg_em_probs, J)
+  censoring_probs = .check_censoring_probs(censoring_probs, J, length(marg_em_probs))
 
   model = list(J = J,
                state_names = state_names,
@@ -104,17 +100,16 @@ specify_hsmm = function(J,
                transition = transition,
                sojourn = sojourn,
                marg_em_probs = marg_em_probs,
-               censoring_probs = censoring_probs,
-               augment_data_fun = augment_data_fun)
+               censoring_probs = censoring_probs
+               )
 
   # 2. Initialize model emission_probabilities
 
   if(verbose) cat("Initializing obs_probs \n")
-  if(is.null(sim_seed)) sim_seed = Sys.time() %>% as.numeric()
-  model$obs_probs = .initialize_obs_probs(model, sim_seed = sim_seed)
+  model$obs_probs = .initialize_obs_probs(model)
 
   if(verbose) cat("Format b \n")
-  model$b = model$obs_probs %>% dplyr::select(-p0) %>%
+  model$b = model$obs_probs %>%
     tidyr::pivot_wider(names_from = state, values_from = p, names_prefix = "p_")
 
   if(!model$censoring_probs$missing_prob_specified){
@@ -124,10 +119,13 @@ specify_hsmm = function(J,
     model$obs_probs = model$obs_probs %>%
       dplyr::group_by(state) %>%
       dplyr::mutate(sum_prob = sum(p),
-                    p = p/sum_prob,
-                    p0 = p) %>%
-      dplyr::select(-sum_prob)
+                    p = p/sum_prob) %>%
+      dplyr::select(-sum_prob) %>%
+      dplyr::ungroup()
   }
+
+  model$obs_probs = model$obs_probs %>% dplyr::ungroup()
+  model$obs_probs$p0 = model$obs_probs$p
 
   # 3. Returns specified model
   class(model) <- 'hsmm'
@@ -135,101 +133,90 @@ specify_hsmm = function(J,
 }
 
 
-.initialize_obs_probs = function(model, sim_seed){
-  all_levels = .get_all_possible_levels(model = model, with_missing = TRUE, continuous_var_binned = TRUE)
-  all_vars = colnames(all_levels)
-  Xsim = data.frame()
-  if(length(model$augment_data_fun(get_var_names_only = TRUE)) > 0)
-    Xsim = simulate_hsmm(model = model, n_state_transitions = 100, all_states = TRUE, min_tp_per_state = 100, seed = sim_seed)
+.initialize_obs_probs = function(model){
 
-  obs_probs = .get_obs_probs(model = model, vars = all_vars, Xsim = Xsim)
-  missing_probs = .get_missing_probs(model = model)
-  obs_probs$p0 =  obs_probs$p
-  obs_probs
-}
-
-
-
-
-.get_obs_probs = function(model, vars, Xsim = data.frame()){
-
-  obs_probs = data.frame(state = 1:model$J)
-  for(var in vars){
-    this_var_obs_probs = .get_marginal_prob(var_name = var, model = model, Xsim = Xsim)
-    this_var_obs_probs = rbind(this_var_obs_probs, tidyr::expand_grid(state = 1:model$J, x = NA, prob = 1))
-    this_var_obs_probs = this_var_obs_probs %>% magrittr::set_colnames(c("state",var,paste0("prob_",var)))
-    obs_probs = obs_probs %>%
-      dplyr::left_join(., this_var_obs_probs, by = c("state"))
-  }
-  obs_probs$p = apply(obs_probs %>% dplyr::select(dplyr::starts_with("prob_")), 1, prod)
-  obs_probs = obs_probs %>% dplyr::select(state, dplyr::all_of(vars), p)
-  obs_probs
-}
-
-
-.initialize_censored_obs_probs = function(model){
-
-  all_vars = names(model$marg_em_probs)
-
-  # we get the observation probabilities (but only for the specified variables, not the augmented ones)
-  obs_probs = .get_obs_probs(model = model, vars = all_vars) %>% dplyr::rename(prob_value = p)
-  # we get the missing probabilities (1-p)*prod(q)
-  missing_probs = .get_missing_probs(model = model)
-
-  # we build the censored_obs_probs data.frame from the obs_probs (as they have the same rows)
-  censored_obs_probs = obs_probs %>%
-    dplyr::mutate(dplyr::across(tidyselect::all_of(all_vars),
-                                is.na,
-                                .names = "{col}_is_missing"))
-
-  # we join with the missing probs and with pj
-  censored_obs_probs =
-    censored_obs_probs %>%
-    dplyr::left_join(.,
-                     missing_probs,
-                     by = c("state", paste0(all_vars,"_is_missing"))) %>%
-    dplyr::mutate(prob = prob_value * prob_missing) %>%
-    dplyr::left_join(.,
-                     data.frame(state = 1:model$J, pj = model$censoring_probs$p),
-                     by = "state")
-
-  censored_obs_probs$add_pj =
-    apply(censored_obs_probs %>% dplyr::select(dplyr::ends_with("_is_missing")), 1, all)
-
-  censored_obs_probs = censored_obs_probs %>%
-    dplyr::mutate(pj = add_pj*pj,
-                  p = prob + pj) %>%
-    dplyr::select(state, dplyr::all_of(all_vars), p) %>%
-    dplyr::mutate(p0 = p)
-  censored_obs_probs
-}
-
-
-.get_missing_probs = function(model = model){
-  q = model$censoring_probs$q
-  q = as.data.frame(q) %>%
-    magrittr::set_colnames(1:model$J) %>%
-    magrittr::set_rownames(names(model$marg_em_probs))
-
-  missing_probs = data.frame(state = 1:model$J)
+  obs_prob = data.frame(state = 1:model$J)
+  # 1. marginal probabilities with missing probabilities for each variable
   for(var in names(model$marg_em_probs)){
-    missing_probs = missing_probs %>%
-      dplyr::left_join(
-        .,
-        data.frame(state = rep(1:model$J, 2),
-                   x = rep(c(TRUE, FALSE), each = model$J),
-                   prob = c(q[var,] %>%  unlist(), 1-q[var,] %>% unlist())) %>%
-          magrittr::set_colnames(c("state", paste0(var,"_is_missing"),paste0("prob_",var))),
-        by = c("state"))
+    this_var_obs_prob = .get_obs_prob(model, var)
+    obs_prob = obs_prob %>%
+      full_join(., this_var_obs_prob, by =  "state")
   }
-  missing_probs$prob_missing = apply(missing_probs %>% dplyr::select(dplyr::starts_with("prob_")),1,prod)
-  missing_probs = missing_probs %>% dplyr::select(state, dplyr::ends_with("_is_missing"), prob_missing)
-  missing_probs = missing_probs %>%
-    dplyr::left_join(., data.frame(state = 1:model$J, p = 1-model$censoring_probs$p), by = "state") %>%
-    dplyr::mutate(prob_missing = prob_missing * p) %>%
-    dplyr::select(-p)
+  obs_prob$p = apply(obs_prob %>%
+                       dplyr::select(dplyr::starts_with("probability_of_var")) %>%
+                       as.data.frame(),
+                     1, prod)
 
-  missing_probs
+  # 2. probability that all variables are missing
+  all_missing_prob = data.frame(state = 1:model$J,
+                                all_missing_p = model$censoring_probs$p)
+
+  obs_prob = obs_prob %>%
+    dplyr::left_join(.,
+              all_missing_prob, by = "state") %>%
+    dplyr::mutate(p = (1-all_missing_p)*p) %>%
+    dplyr::select(-all_missing_p)
+
+  for(var in names(model$marg_em_probs)) all_missing_prob[,var] = NA
+  obs_prob =  obs_prob %>%
+    dplyr::left_join(.,
+              all_missing_prob,
+              by = c("state", names(model$marg_em_probs))) %>%
+    dplyr::mutate(all_missing_p = all_missing_p %>% replace_na(0),
+                  p = p + all_missing_p) %>%
+    dplyr::select(-all_missing_p)
+
+  # 3. normalizing probabilities (sum to 1 for each state)
+  obs_prob = obs_prob %>%
+    dplyr::group_by(state) %>%
+    dplyr::mutate(sum_prob = sum(p),
+                  p = p/sum_prob) %>%
+    dplyr::select(-sum_prob)
+
+  # 4. formatting
+  obs_prob = obs_prob %>%
+    dplyr::select(state, dplyr::all_of(names(model$marg_em_probs)), p)
+
+  obs_prob
+}
+
+.get_obs_prob = function(model, var){
+
+  var_i = which(names(model$marg_em_probs) == var)
+
+  this_var_obs_probs = .get_marginal_prob(var_name = var, model = model)
+  this_var_obs_probs[,var] = this_var_obs_probs$x
+  this_var_obs_probs = this_var_obs_probs %>%
+    dplyr::select(-x)
+
+  this_var_missing_prob =
+    data.frame(state = 1:model$J,
+               q = model$censoring_probs$q[var_i,]
+    )
+
+  this_var_obs_probs =
+    dplyr::left_join(
+      this_var_obs_probs,
+      this_var_missing_prob %>%
+        dplyr::mutate(p_m = 1-q) %>%
+        dplyr::select(-q),
+      by = "state") %>%
+    dplyr::mutate(p = prob * p_m) %>%
+    dplyr::select(-prob, -p_m)
+
+  this_var_missing_prob[, var] = NA
+
+  this_var_obs_probs =
+    dplyr::bind_rows(
+      this_var_obs_probs,
+      this_var_missing_prob %>%
+        dplyr::rename(p = q)
+    )
+
+  this_var_obs_probs[,paste0("probability_of_var_",var)] = this_var_obs_probs$p
+  this_var_obs_probs = this_var_obs_probs %>%
+    dplyr::select(-p)
+  this_var_obs_probs
 }
 
 
@@ -319,7 +306,6 @@ predict_states_hsmm = function(model, X,
   if(verbose) cat("Model checked\n")
   # check data
   X = .check_data(data = X, model = model)
-  X = .augment_data(model = model, X = X, verbose = verbose)
   if(verbose) cat("Data checked\n")
   # ground_truth
   if((nrow(ground_truth)>0) && (!all(is.na(ground_truth$state))))
@@ -580,24 +566,6 @@ predict_states_hsmm = function(model, X,
 
 
 
-#' @export
-.augment_data = function(model, X, verbose = FALSE){
-
-  if(.is_data_augmented(data = X, model = model)) return(X)
-
-  var_names = names(model$marg_em_probs)
-  #M = X %>% select(all_of(var_names)) %>% is.na() %>%  set_colnames(str_c(var_names, "_M")) %>%  set_rownames(rownames(X))
-  #M = M*1
-
-  if(verbose) cat("augmenting the data ...")
-  E_fun = model$augment_data_fun
-  E = E_fun(X)
-  if(verbose) cat("... done\n")
-
-  if(nrow(E) == nrow(X)) augmented_X = cbind(X, E) else augmented_X = X #cbind(X, M)
-  augmented_X
-}
-
 
 .augment_model = function(model, X, ground_truth,
                           trust_in_ground_truth = 0.75,
@@ -666,75 +634,6 @@ predict_states_hsmm = function(model, X,
 }
 
 
-.build_d_from_sojourn_dist <- function(model,M) {
-  # shortcuts
-  J = model$J
-  sojourn.distribution=model$sojourn$type
-
-  # Is d specified as a matrix in the sojourn specifications?
-  d_exists_in_sojourn_spec = !is.null(model$sojourn$d)
-  # if yes, we use it instead of the parameters.
-  if(d_exists_in_sojourn_spec)
-  {
-    # we check that it has J columns
-    if(ncol(model$sojourn$d)!=J) stop("ncol(model$d)!=J")
-    # we get the longuest sojourn (runlength), i.e. the number of rows of d
-    max_rl = nrow(model$sojourn$d)
-    # we extend or shorten the matrix so that it matches the provided M
-    if(max_rl >= M) d = head(model$sojourn$d, M)
-    else d = rbind(model$sojourn$d, matrix(0, ncol = J, nrow = (M-max_rl)))
-  }
-  # if d is not specified in the sojourn specification, we build it from the distribution parameters
-  else
-  {
-    # we initialize d to an empty matrix
-    d = matrix(nrow=M, ncol=model$J)
-
-    # non-par
-    if(sojourn.distribution=='nonparametric' | sojourn.distribution=="ksmoothed-nonparametric") {
-      stop("Sojourn distribution (model$sojourn$d) not specified.")
-    }
-    # poisson
-    if(sojourn.distribution=="poisson") {
-      if(is.null(model$sojourn$lambda)) stop('Invalid sojourn parameters supplied')
-      if(is.null(model$sojourn$shift)) stop('No shift parameter provided for Poisson sojourn distribution (must be at least 1)')
-      for(i in 1:J) d[,i] = .dpois.hsmm.sojourn(1:M,model$sojourn$lambda[i],model$sojourn$shift[i])
-    }
-    # log normal
-    if(sojourn.distribution=="lnorm") {
-      if(is.null(model$sojourn$meanlog) | is.null(model$sojourn$s.dlog)) stop('Invalid sojourn parameters supplied')
-      for(i in 1:J) d[,i] = dlnorm(1:M,model$sojourn$meanlog[i],model$sojourn$s.dlog[i])
-    }
-    # gamma
-    if(sojourn.distribution=="gamma") {
-      if(is.null(model$sojourn$shape) | is.null(model$sojourn$scale)) stop('Invalid sojourn parameters supplied')
-      for(i in 1:J) d[,i] = dgamma(1:M,shape=model$sojourn$shape[i],scale=model$sojourn$scale[i])
-    }
-    # log
-    if(sojourn.distribution=="logarithmic") {
-      if(is.null(model$sojourn$shape)) stop('Invalid sojourn parameters supplied')
-      for(i in 1:J) d[,i] = .dlog(1:M,model$sojourn$shape[i])
-    }
-    # nbinom
-    if (sojourn.distribution == "nbinom") {
-      if(is.null(model$sojourn$mu) & is.null(model$sojourn$prob)) stop('Invalid sojourn parameters supplied')
-      if(is.null(model$sojourn$mu))   for (i in 1:J) d[, i] = .dnbinom.hsmm.sojourn(1:M,size=model$sojourn$size[i],prob=model$sojourn$prob[i],shift=model$sojourn$shift[i])
-      if(is.null(model$sojourn$prob)) for (i in 1:J) d[, i] = .dnbinom.hsmm.sojourn(1:M,size=model$sojourn$size[i],mu=model$sojourn$mu[i],shift=model$sojourn$shift[i])
-    }
-  }
-
-  # finally, we need to normalize so that the sojourn distribution sums to 1 for each state
-  # d = apply(d,2,function(x) x/sum(x)) # if a state has its shorter possible sojourn shorter than the requested M; this will lead to an error. Instead (next line) if the sum of sojourn is zero, we keep zeros
-  d = apply( d, 2,
-             function(x){
-               total = sum(x)
-               if(total > 0) res =  x/sum(x) else res = 0*x
-               res}
-             )
-
-  d
-}
-
 
 
 
@@ -781,10 +680,10 @@ fit_hsmm = function(model, X,
                     lock_emission = FALSE,
                     lock_transition = FALSE,
                     lock_sojourn = FALSE,
-                    use_sojourn_prior = TRUE,
+                    N0 = 0,
+                    use_sojourn_prior = FALSE,
                     ground_truth = data.frame(),
                     trust_in_ground_truth = 0.75,
-                    N0 = 1,
                     verbose = FALSE, graphical = FALSE){
 
   # 1. Checks
@@ -794,9 +693,6 @@ fit_hsmm = function(model, X,
   if(missing(X)) stop("X missing!")
   X = .check_data(data = X, model = model)
   if(verbose) cat("Data checked\n")
-
-  X = .augment_data(model = model, X = X, verbose = verbose)
-  if(verbose){cat("Data augmented \n")}
 
   # if any ground_truth, check it
   if(nrow(ground_truth)>0){
@@ -875,7 +771,7 @@ fit_hsmm = function(model, X,
   }
   if(verbose) cat("Model fitted\n")
   # TODO: update $censored_obs_probs, $marg_em_probs and $censoring_probs
-  model$censored_obs_probs = .re_estimate_censored_obs_prob(model = model, X = X, w = weights, N0 = N0)
+  # model$censored_obs_probs = .re_estimate_censored_obs_prob(model = model, X = X, w = weights, N0 = N0)
   # model$marg_em_probs = .re_estimate_marginal_emission_probabilities(model = model, X = X, w = weights)
   # model$censoring_probs = .re_estimate_censoring_probabilities(model = model, X = X, w = weights)
 
@@ -929,8 +825,8 @@ fit_hsmm = function(model, X,
 .re_estimate_obs_probs = function(model, X, w = w, N0 = 200, verbose = FALSE){
 
   new_model = model
-  all_levels = .get_all_possible_levels(model = model, with_missing = TRUE, continuous_var_binned = TRUE)
-  var_names = colnames(all_levels)
+
+  var_names = names(model$marg_em_probs)
   Xb = .cut_continuous_var(model = model, X = X)
   Xb_with_w = Xb %>%
     dplyr::select(seq_id, t, all_of(var_names)) %>% # we only keep the seq_id, the time-points and the observations
@@ -942,42 +838,85 @@ fit_hsmm = function(model, X,
                        dplyr::mutate(state = as.integer(state)),
                      by = c("seq_id","t"))
 
-  observed_missing = Xb_with_w %>% dplyr::mutate(dplyr::across(tidyselect::all_of(var_names), is.na))
+  observed_obs_probs = Xb_with_w %>%
+    dplyr::group_by(.dots = c("state", var_names)) %>%
+    dplyr::summarize(counts = sum(p), .groups = "drop")
 
-  # we first make a list with all combination of reported variables
-  all_obs_combs = .get_all_possible_combination_of_reported_variables(model)
-  P_values = purrr::map_dfr(.x = all_obs_combs,
-                            .f = function(obs_comb){
-                              obs_names = stringr::str_split(obs_comb, "_") %>% unlist()
-                              contingency_table = Xb_with_w %>%
-                                dplyr::select(tidyselect::all_of(obs_names), state, p) %>%
-                                dplyr::mutate(has_NA = observed_missing %>% dplyr::select(tidyselect::all_of(obs_names)) %>% apply(.,1,any)) %>%
-                                dplyr::filter(!has_NA) %>% dplyr::select(-has_NA) %>%
-                                dplyr::group_by(.dots = c("state", obs_names)) %>%
-                                dplyr::summarise(counts = sum(p), .groups = "drop") %>%
-                                dplyr::group_by(state) %>%
-                                dplyr::mutate(N = sum(counts)) %>%
-                                dplyr::ungroup()
-                              contingency_table[,setdiff(var_names, obs_names)] = NA
-                              contingency_table = contingency_table %>% dplyr::select(state, dplyr::all_of(var_names), counts, N)
-                              contingency_table
-                            })
+  observed_N = observed_obs_probs %>%
+    dplyr::select(state, counts) %>%
+    dplyr::group_by(state) %>%
+    dplyr::summarize(N = sum(counts), .groups = "drop")
 
+  obs_probs = model$obs_probs %>%
+    dplyr::left_join(., observed_N, by = "state") %>%
+    dplyr::left_join(.,
+                     observed_obs_probs,
+                     by = c("state", var_names)) %>%
+    dplyr::mutate(counts = counts %>% tidyr::replace_na(0),
+                  p = (p0 * N0 + counts)/(N0 + N)) %>%
+    dplyr::select(state, dplyr::all_of(var_names), p, p0)
 
-
-  new_model$obs_probs = model$obs_probs %>%
-    dplyr::left_join(., P_values, by = c("state", var_names)) %>%
-    dplyr::mutate(counts = counts %>% replace_na(0),
-                  N = N %>% replace_na(0),
-                  p = (p0*N0 + counts)/(N0 + N),
-                  p = p %>% replace_na(1)) %>%
-    dplyr::select(-counts, - N)
+  new_model$obs_probs = obs_probs
 
   new_model$b =  new_model$obs_probs %>% dplyr::select(-p0) %>%
     tidyr::pivot_wider(names_from = state, values_from = p, names_prefix = "p_")
 
   new_model
 }
+
+#
+# # deprecated
+# .re_estimate_obs_probs = function(model, X, w = w, N0 = 200, verbose = FALSE){
+#
+#   new_model = model
+#   var_names = names(model$marg_em_dist)
+#   Xb = .cut_continuous_var(model = model, X = X)
+#   Xb_with_w = Xb %>%
+#     dplyr::select(seq_id, t, all_of(var_names)) %>% # we only keep the seq_id, the time-points and the observations
+#     dplyr::full_join(., # we join with the weight, but we need to transform them to long format first
+#                      w %>% as.data.frame() %>%
+#                        magrittr::set_colnames(1:model$J) %>%
+#                        dplyr::mutate(seq_id = X$seq_id, t = X$t) %>%
+#                        tidyr::pivot_longer(col = c(-seq_id, -t), names_to = "state", values_to = "p") %>%
+#                        dplyr::mutate(state = as.integer(state)),
+#                      by = c("seq_id","t"))
+#
+#   observed_missing = Xb_with_w %>% dplyr::mutate(dplyr::across(tidyselect::all_of(var_names), is.na))
+#
+#   # we first make a list with all combination of reported variables
+#   all_obs_combs = .get_all_possible_combination_of_reported_variables(model)
+#   P_values = purrr::map_dfr(.x = all_obs_combs,
+#                             .f = function(obs_comb){
+#                               obs_names = stringr::str_split(obs_comb, "_") %>% unlist()
+#                               contingency_table = Xb_with_w %>%
+#                                 dplyr::select(tidyselect::all_of(obs_names), state, p) %>%
+#                                 dplyr::mutate(has_NA = observed_missing %>% dplyr::select(tidyselect::all_of(obs_names)) %>% apply(.,1,any)) %>%
+#                                 dplyr::filter(!has_NA) %>% dplyr::select(-has_NA) %>%
+#                                 dplyr::group_by(.dots = c("state", obs_names)) %>%
+#                                 dplyr::summarise(counts = sum(p), .groups = "drop") %>%
+#                                 dplyr::group_by(state) %>%
+#                                 dplyr::mutate(N = sum(counts)) %>%
+#                                 dplyr::ungroup()
+#                               contingency_table[,setdiff(var_names, obs_names)] = NA
+#                               contingency_table = contingency_table %>% dplyr::select(state, dplyr::all_of(var_names), counts, N)
+#                               contingency_table
+#                             })
+#
+#
+#
+#   new_model$obs_probs = model$obs_probs %>%
+#     dplyr::left_join(., P_values, by = c("state", var_names)) %>%
+#     dplyr::mutate(counts = counts %>% replace_na(0),
+#                   N = N %>% replace_na(0),
+#                   p = (p0*N0 + counts)/(N0 + N),
+#                   p = p %>% replace_na(1)) %>%
+#     dplyr::select(-counts, - N)
+#
+#   new_model$b =  new_model$obs_probs %>% dplyr::select(-p0) %>%
+#     tidyr::pivot_wider(names_from = state, values_from = p, names_prefix = "p_")
+#
+#   new_model
+# }
 
 
 
@@ -1023,8 +962,6 @@ fit_hsmm = function(model, X,
 .re_estimate_sojourn_distributions = function(model, fwbw_res, use_sojourn_prior = TRUE, graphical = FALSE){
 
   new_model = model
-  # shortcuts
-  sojourn_distribution = model$sojourn$type
 
   # the smoothed (forward/backward) algorithm returns a new "d" matrix
   ds = fwbw_res$eta %>% matrix(.,ncol = model$J)
@@ -1035,105 +972,101 @@ fit_hsmm = function(model, X,
     if(nrow(d_prior) > nrow(ds)) d_prior = d_prior[1:nrow(ds),]
     ds = ds * d_prior
   }
-
   # This matrix now needs to be normalized such that the sojourn density distribution sums to 1 for any state.
   ds = ds %>% apply(.,2,function(x) x/sum(x))
   ds_i = ds # we keep the "initial" ds
   M = nrow(ds) # max sojourn duration
 
-  # We can re-use this ds as is if the sojourn distribution family is non-parametric.
-  # If the sojourn distribution is defined as a parametric distribution, we can use ds to estimate the parameters of these distributions
+  sojourn = purrr::map(
+    .x = 1:model$J,
+    .f = .re_estimate_sojourn_distribution,
+    model = model,
+    d = ds
+  )
 
-  if(sojourn_distribution == "nonparametric"){
-    new_model$sojourn$d = ds
-  }else if(sojourn_distribution == "ksmoothed-nonparametric"){
-    ds = ds + 1e-100
-    ksmooth.thresh = 1e-20 #this is a threshold for which d(u) values to use - if we throw too many weights in the default density() seems to work quite poorly
-    for(i in 1:model$J){
-      u = which(ds[,i]>ksmooth.thresh)
-      if(length(u)>1){
-      ds[,i] = density(u, weights = ds[u,i], from = 1, n = M) %>% approx(.,xout=1:nrow(ds)) %>% pluck("y") %>% tidyr::replace_na(0)
-      ds[,i] = ds[,i]/sum(ds[,i])
-      }
-    }
-    new_model$sojourn$d = ds
-
-  }else if(sojourn_distribution == "poisson"){
-    new_model$sojourn$lambda = numeric(model$J)
-    new_model$sojourn$shift = numeric(model$J)
-    shiftthresh = 1e-20 #threshold for effective "0" when considering d(u)
-    for(i in 1:model$J) {
-      eta = ds[,i]
-      u = which(eta>shiftthresh); maxshift =  min(u); Mtmp = max(u) ; U = maxshift:Mtmp
-      shifts = sapply(1:maxshift, function(shift) .dpois.hsmm.sojourn(x = U,lambda=(U-shift)%*%eta[U],shift=shift,log=TRUE)%*%eta[U])
-      shift = which.max(shifts); new_U = shift:Mtmp
-      new_model$sojourn$shift[i] = shift
-      new_model$sojourn$lambda[i] = (new_U-shift)%*%eta[new_U]
-      ds[,i] = .dpois.hsmm.sojourn(1:M,new_model$sojourn$lambda[i],new_model$sojourn$shift[i])
-    }
-
-  }else if(sojourn_distribution == "nbinom"){
-    new_model$sojourn$size = numeric(model$J)
-    new_model$sojourn$shift = integer(model$J)
-    new_model$sojourn$mu = numeric(model$J)
-    new_model$sojourn$prob = numeric(model$J)
-    for(i in 1:model$J) {
-      tmp = .fitnbinom(ds[,i])
-      new_model$sojourn$shift[i] = tmp['shift']
-      new_model$sojourn$size[i] =  tmp['size']
-      new_model$sojourn$mu[i] =  tmp['mu']
-      new_model$sojourn$prob[i] =  tmp['prob']
-      ds[,i] =  .dnbinom.hsmm.sojourn(1:M,tmp['size'],tmp['prob'],tmp['shift'])
-    }
-
-  }else if(sojourn_distribution == "gamma"){
-    new_model$sojourn$shape = numeric(model$J)
-    new_model$sojourn$scale = numeric(model$J)
-    for(i in 1:model$J) {
-      tmp = gammafit(1:nrow(ds),wt=ds[,i])
-      new_model$sojourn$shape[i] = tmp$shape
-      new_model$sojourn$scale[i] = tmp$scale
-      ds[,i] = dgamma(1:M,shape=tmp$shape,scale=tmp$scale)
-    }
-
-  }else if(sojourn_distribution == "logarithmic"){
-    ds = ds+1e-100
-    new_model$sojourn$shape = numeric(model$J)
-    for(i in 1:model$J) {
-      new_model$sojourn$shape[i] = .logdistrfit(wt=ds[,i])
-      ds[,i] = .dlog(1:M,new_model$sojourn$shape[i])
-    }
-
-  }else if(sojourn_distribution == "lnorm"){
-    new_model$sojourn$meanlog = numeric(model$J)
-    new_model$sojourn$s.dlog = numeric(model$J)
-    for(i in 1:model$J) {
-      new_model$sojourn$meanlog[i] = weighted.mean(log(1:M),ds[,i])
-      new_model$sojourn$s.dlog[i] = sqrt(cov.wt(data.frame(log(1:M)),ds[,i])$cov)
-      ds[,i] = dlnorm(1:M,new_model$sojourn$meanlog[i],new_model$sojourn$s.dlog[i])
-    }
-  }else{
-    stop("Invalid sojourn distribution")
-  }
-
-  ds = apply(ds,2,function(x) x/sum(x))
+  new_model$sojourn = sojourn
 
   if(graphical){
     ds_o = .build_d_from_sojourn_dist(model, M = M)
+    ds_updated = .build_d_from_sojourn_dist(new_model, M = M)
     par(mfrow = c(5,4), mar = c(0,0,0,0)+1.8)
     for(i in 1:model$J){
-      max_y = max(c(ds_o[1:100,i],ds_i[1:100,i],ds[1:100,i]), na.rm = TRUE)
+      max_y = max(c(ds_o[1:100,i],ds_updated[1:100,i]), na.rm = TRUE)
       plot(ds_o[1:100,i], type = "l", col = "black", ylim = c(0,max_y), ylab = "", xlab = "", main = i)
-      points(ds_i[1:100,i], type = "l", col = "blue")
-      points(ds[1:100,i], type = "l", col = "red", lty = 2)
+      if(use_sojourn_prior) points(d_prior[1:100,i], type = "l", col = "blue")
+      points(ds_updated[1:100,i], type = "l", col = "red", lty = 2)
     }
     par(mfrow = c(1,1))
   }
 
-  #new_model$d = ds
-  #new_model$D = ds %>%  apply(. ,2,function(x) rev(cumsum(rev(x))))
   new_model
 }
+
+
+.re_estimate_sojourn_distribution = function(j, model, d){
+
+  this_model_sojourn = model$sojourn[[j]]
+  sojourn_distribution = this_model_sojourn$type
+  d = d[,j]
+
+  M = length(d)
+
+  if(sojourn_distribution == "nonparametric"){
+
+    this_model_sojourn$d = d
+
+  }else
+    if(sojourn_distribution == "ksmoothed_nonparametric"){
+
+    d = d + 1e-100
+    ksmooth.thresh = 1e-20 #this is a threshold for which d(u) values to use - if we throw too many weights in the default density() seems to work quite poorly
+    u = which(d>ksmooth.thresh)
+    if(length(u)>1){
+      d = density(u, weights = d[u], from = 1, n = M) %>%
+        approx(.,xout=1:M) %>% pluck("y") %>% tidyr::replace_na(0)
+      d = d/sum(d)
+    }
+    this_model_sojourn$d = d
+
+  }else
+    if(sojourn_distribution == "poisson"){
+      #threshold for effective "0" when considering d(u)
+      shiftthresh = 1e-20
+      u = which(d>shiftthresh); maxshift =  min(u); Mtmp = max(u) ; U = maxshift:Mtmp
+      shifts = sapply(1:maxshift, function(shift) .dpois.hsmm.sojourn(x = U,lambda=(U-shift)%*%d[U],shift=shift,log=TRUE)%*%d[U])
+      shift = which.max(shifts); new_U = shift:Mtmp
+      this_model_sojourn$shift = shift
+      this_model_sojourn$lambda = (new_U-shift)%*%d[new_U]
+  }else
+    if(sojourn_distribution == "nbinom"){
+      tmp = .fitnbinom(d)
+      this_model_sojourn$shift = tmp['shift']
+      this_model_sojourn$size =  tmp['size']
+      this_model_sojourn$mu =  tmp['mu']
+      this_model_sojourn$prob =  tmp['prob']
+  }else
+    if(sojourn_distribution == "gamma"){
+
+      tmp = gammafit(1:length(d),wt=d)
+      this_model_sojourn$shape = tmp$shape
+      this_model_sojourn$scale = tmp$scale
+
+  }else
+    if(sojourn_distribution == "logarithmic"){
+    d = d + 1e-100
+    this_model_sojourn$shape = .logdistrfit(wt=d)
+
+  }else
+    if(sojourn_distribution == "lnorm"){
+      this_model_sojourn$meanlog[i] = weighted.mean(log(1:M),d)
+      this_model_sojourn$sdlog[i] = sqrt(cov.wt(data.frame(log(1:M)),d)$cov)
+  }else{
+    stop("Invalid sojourn distribution")
+  }
+
+  this_model_sojourn
+}
+
 
 
 .re_estimate_censored_obs_prob = function(model, X, w, N0){
