@@ -10,7 +10,10 @@ To install the package from github:
 
 * Install the `HiddenSemiMarkov` package with the command:
 
-`devtools::install_github("lasy/HiddenSemiMarkov")` or `devtools::install_github("lasy/HiddenSemiMarkov", build_vignettes = TRUE)` if you wish to build the vignette for this package.
+`devtools::install_github("lasy/HiddenSemiMarkov")` or 
 
-* Find examples in the vignette by typing `browseVignettes(package = "HiddenSemiMarkov")` or start specifying a model with the `specify_hsmm` function (type `?specify_hsmm` for documentation).
+`devtools::install_github("lasy/HiddenSemiMarkov", build_vignettes = TRUE)` if you wish to build the vignette for this package.
+
+* Find examples in the vignette by typing `browseVignettes(package = "HiddenSemiMarkov")` 
+or start specifying a model with the `specify_hsmm` function (type `?specify_hsmm` for documentation).
 
