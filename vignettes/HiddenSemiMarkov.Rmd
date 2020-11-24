@@ -2,7 +2,7 @@
 title: "Introduction to `HiddenSemiMarkov`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{HiddenSemiMarkov}
+  %\VignetteIndexEntry{Introduction to `HiddenSemiMarkov`}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

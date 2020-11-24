@@ -222,7 +222,7 @@ specify_hsmm = function(J,
 }
 
 
-#' Computes matrix b for a given sequence of observations.
+# Computes matrix b for a given sequence of observations.
 .compute_obs_probs = function(model, X){
   Xp = .cut_continuous_var(model = model, X = X) # cut continuous variables so that they match values in matrix b
   Xb = dplyr::left_join(Xp, model$b, by = intersect(colnames(model$b), colnames(Xp))) # join X with model$b

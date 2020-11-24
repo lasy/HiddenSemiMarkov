@@ -1,0 +1,40 @@
+reference:
+- title: "Specifying a hidden semi-Markov model"
+  desc: >
+    These functions allows to specify a hidden Semi Markov model.
+- contents:
+  - specify_hsmm
+  - available_sojourn_dist
+  - available_marginal_emission_dist
+  - summary_hsmm
+- title: "Simulating sequences of hidden states and observations"
+- contents:
+  - simulate_hsmm
+- title: "Fitting a model to observation sequences."
+  desc: >
+    These functions allows to fit a hidden Semi Markov model a set of observation sequences.
+- contents:
+  - fit_hsmm
+  - plot_hsmm_fit_status
+- title: "Predicting the hidden states sequence from observation sequences."
+- contents:
+  - predict_states_hsmm
+  - predict.hsmm
+- title: "Visualization functions"
+  desc: >
+    Functions to visualize observation sequences and model specifications
+    (such as the model graph or the sojourn distributions).
+- contents:
+  - plot_hsmm_seq
+  - available_emission_viz_options
+  - plot_hsmm_transitions
+  - plot_hsmm_sojourn_dist
+  - plot_hsmm_marg_dist
+  - plot_hsmm_joint_em_prob
+  - plot_hsmm_state_colors
+- title: "Labelling function"
+- contents:
+  - label_sequences
+- title: "Simple hidden semi-Markov model for demos"
+- contents:
+  - simple_model

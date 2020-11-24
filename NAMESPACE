@@ -2,8 +2,8 @@
 
 export(.build_d_from_sojourn_dist)
 export(.check_data)
+export(available_emission_viz_options)
 export(available_marginal_emission_dist)
-export(available_marginal_emission_viz_options)
 export(available_sojourn_dist)
 export(fit_hsmm)
 export(gammafit)

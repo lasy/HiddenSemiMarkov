@@ -80,7 +80,7 @@ available_marginal_emission_dist = function(){
 #' my_model$marg_em_probs$var3$viz_options$colors = c("purple","gray","blue","orange")
 #' plot_hsmm_seq(model = my_model, X = Xsim)
 #'
-available_marginal_emission_viz_options = function(){
+available_emission_viz_options = function(){
   marginal_em_viz_options = rbind(
     data.frame(distribution = "norm", viz_options = "color_low", option_description = "low values color", stringsAsFactors = FALSE),
     data.frame(distribution = "norm", viz_options = "color_high", option_description = "high values color", stringsAsFactors = FALSE),

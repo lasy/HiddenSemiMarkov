@@ -2,30 +2,28 @@
 % Please edit documentation in R/label_sequences.R
 \name{label_sequences}
 \alias{label_sequences}
-\title{Interactive app for the labeling of sequences with mode states.}
+\title{Interactive app for the labeling of sequences with mode states}
 \usage{
 label_sequences(model, X, ground_truth = data.frame(), verbose = FALSE)
 }
 \arguments{
-\item{model}{a \code{hsmm} or \code{hsmm_spec} object: the hidden semi-Markov model defined to decode the observations}
+\item{model}{a \code{hsmm} object: the hidden semi-Markov model defined to decode the observations}
 
 \item{X}{a \code{data.frame} of observations.
 In addition to the sequence ID (\code{seq_id}), time-point (\code{t}) and variable columns, state sequences that the user would like to validate or compare to the ground truth can be specified as additional columns.
-These columns names should be \code{'state_xyz'} where \code{'xyz'} is a string identifying the decoding. \code{'xyz'} cannot be \code{'ground_truth'}, any other string is accepted.}
+These columns names should be \code{state_xyz} where \code{xyz} is a string identifying the decoding. \code{xyz} cannot be \code{ground_truth}, any other string is accepted.}
 
 \item{ground_truth}{(optional) a \code{data.frame} providing the initial set of labeled time-points. If not provided, the ground truth is initialized to an empty \code{data.frame}.}
 }
 \value{
-a \code{"ground truth" data.frame} which combines the initial ground truth (if provided) and the newly labeled time-points.
+a \code{data.frame} which combines the initial ground truth (if provided) and the newly labeled time-points.
 }
 \description{
 The function \code{label_sequences()} launches an interactive app in your default web-browser that allows you to
 (1) visualize observations and existing ground truth or other state sequences,
-(2) label time-points with states of the provided \code{hsmm} or \code{hsmm_spec} model,
+(2) label time-points with states of the provided \code{hsmm} model,
 (3) delete any existing ground truth, and
 (4) validate state sequences provided with the observation so that they are included in the ground truth.
-}
-\details{
 The app lets you select the sequence if the argument \code{X} contains several sequences and lets you zoom on particular sections of the sequences.
 Another slider allows you to select specific time-points of the sequence for labeling them.
 Closing the app window will stop the app and returns the updated ground truth.
@@ -34,6 +32,8 @@ Closing the app window will stop the app and returns the updated ground truth.
 my_model = simple_model
 Xsim = simulate_hsmm(model = my_model, n_state_transition = 20, seq_id = "test_seq")
 Xsim = dplyr::rename(Xsim, state_simulated_sequence = state)
+\dontrun{
 ground_truth = label_sequences(model = my_model, X = Xsim)
 if(nrow(ground_truth)>0) table(model$state_names[ground_truth$state])
+}
 }
