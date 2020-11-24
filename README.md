@@ -3,7 +3,12 @@
   <!-- badges: end -->
 
 # HiddenSemiMarkov
-HiddenSemiMarkov R package
+
+`HiddenSemiMarkov` is an R package for specifying hidden semi-Markov models, simulating sequences, fitting models to specific observation sequences and predicting the sequence of hidden states from observation sequences.
+
+It is especially designed to model multivariate sequences with frequent missing data. The probabilities of missing data may be state- or variable-dependent and specified manually or learned from observation sequences.
+
+## Installation
 
 To install the package from github:
 * Open R or Rstudio
@@ -18,6 +23,8 @@ To install the package from github:
 
 `devtools::install_github("lasy/HiddenSemiMarkov", build_vignettes = TRUE)` 
 if you wish to build the vignette for this package.
+
+## To get started
 
 * Find examples in the vignette by typing `browseVignettes(package = "HiddenSemiMarkov")` 
 or start specifying a model with the `specify_hsmm` function (type `?specify_hsmm` for documentation).
