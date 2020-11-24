@@ -9,6 +9,6 @@ purrr
 dplyr
 stringr
 forcats
-kableExtra
-bookdown
 ggpubr
+bookdown
+kableExtra
