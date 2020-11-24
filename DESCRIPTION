@@ -19,10 +19,12 @@ Imports:
     tidyr,
     shiny,
     viridis,
-    ggnewscale
+    ggnewscale,
+    lifecycle
 Depends: 
     R (>= 2.10)
 Suggests: 
     knitr,
     rmarkdown
 VignetteBuilder: knitr
+RdMacros: lifecycle
