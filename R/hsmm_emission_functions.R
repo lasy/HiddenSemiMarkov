@@ -6,7 +6,7 @@
 #'
 #' @export
 #' @seealso \code{available_marginal_emission_viz_options()} for the list of available visualization options for each of these distributions.
-#'
+#' @examples available_marginal_emission_dist()
 available_marginal_emission_dist = function(){
 
   available_marg_em_probs = rbind(

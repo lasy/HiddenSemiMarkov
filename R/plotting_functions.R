@@ -340,7 +340,9 @@ plot_hsmm_state_colors = function(model){
 #' @export
 #' @importFrom magrittr %>%
 #' @import ggplot2
-#'
+#' @examples
+#' my_model = simple_model
+#' plot_hsmm_marg_dist(model = my_model)
 plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE){
 
   X_names = names(model$marg_em_probs)
@@ -550,7 +552,9 @@ plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE
 #' @export
 #' @importFrom magrittr %>%
 #' @import ggplot2 dplyr geomnet
-#'
+#' @examples
+#' my_model = simple_model
+#' plot_hsmm_transitions(model = my_model)
 plot_hsmm_transitions = function(model,
                                  size = 20,
                                  label_size = NULL,
@@ -607,7 +611,9 @@ plot_hsmm_transitions = function(model,
 #' @export
 #' @importFrom magrittr %>%
 #' @import ggplot2
-#'
+#' @examples
+#' my_model = simple_model
+#' plot_hsmm_sojourn_dist(model = my_model)
 plot_hsmm_sojourn_dist = function(model, maxt = 100, one_panel_per_state = FALSE){
 
   state_names = model$state_names
@@ -640,7 +646,9 @@ plot_hsmm_sojourn_dist = function(model, maxt = 100, one_panel_per_state = FALSE
 #' @export
 #' @importFrom magrittr %>%
 #' @import ggplot2
-#'
+#' @examples
+#' my_model = simple_model
+#' plot_hsmm_joint_em_prob(model = my_model)
 plot_hsmm_joint_em_prob = function(model, title = ""){
   if(class(model) != "hsmm") stop("Needs an hsmm model (class = 'hsmm').")
 
@@ -684,8 +692,6 @@ plot_hsmm_joint_em_prob = function(model, title = ""){
 }
 
 
-
-
 #' Visualizes the status of the EM-procedure.
 #'
 #' If a model has been fitted using the function \code{fit_hsmm()}, this function can be used to visualize the convergence of the EM.
@@ -697,7 +703,11 @@ plot_hsmm_joint_em_prob = function(model, title = ""){
 #' @export
 #' @importFrom magrittr %>%
 #' @import ggplot2
-#'
+#' @examples
+#' my_model = simple_model
+#' X_sim = simulate_hsmm(model = my_model, n_state_transitions = 20)
+#' fit_results = fit_hsmm(model = my_model, X = X_sim)
+#' plot_hsmm_fit_status(fit_output = fit_results)
 plot_hsmm_fit_status = function(fit_output, title = NULL, y_axis_limits = NULL){
   if(is.null(title)) title = "EM status"
   df = data.frame(iter = 1:fit_output$fit_param$n_iter, log_likelihood = fit_output$fit_param$ll)
@@ -716,380 +726,4 @@ plot_hsmm_fit_status = function(fit_output, title = NULL, y_axis_limits = NULL){
 
   g
 }
-
-### DEPRECATED ----------------------------
-
-
-plot_hsmm_seq_expanded = function(X, model,
-                                  add_state_color_legend = FALSE,
-                                  title = NULL,
-                                  verbose = FALSE, selection = data.frame()){
-
-  # CHECKS
-
-  X = .check_types_and_values(data = X, parem = model$marg_em_probs)
-
-  if(nrow(selection)>0){
-    if(!all(colnames(selection) %in% c("state","start","end"))) stop("The 'selection' data.frame must have the following columns: 'state','start','end'.")
-  }
-
-  if(length(unique(X$seq_id))>1) warning("More than one sequence provided.")
-  state_cols = model$state_colors
-
-
-  # shorcuts
-  X_names = names(model$marg_em_probs)
-
-
-  # data preparation: adding states colors
-  state_columns = stringr::str_detect(colnames(X),"^state")
-  if(any(state_columns)){
-    # for each state column, we will define a new column with the same name + "_col" which will have the colors of the state
-    for(i in which(state_columns)){
-      df = data.frame(state_col = state_cols[X[,i] %>% unlist()]); colnames(df) = stringr::str_c(colnames(X)[i],"_col")
-      X = cbind(X, df)
-    }
-
-    # then, if there are exactly two state columns, we will create a third state column that will have the difference between the two state columns
-    if(sum(state_columns) == 2){
-      X = X %>%
-        dplyr::mutate(
-          state_diff = X[,which(state_columns)[1]] == X[,which(state_columns)[2]],
-          state_diff_col = c("red","blue")[state_diff+1])
-    }
-  }
-
-  if(nrow(selection)>0)
-    selection = selection %>% dplyr::mutate(state_color = state_cols[state], t = start)
-
-
-  g_axis = ggplot(X, aes(x = t))
-  if(nrow(selection)>0){
-    g_axis = g_axis +
-      geom_rect(data = selection, aes(xmin = t, xmax = end, ymin = -Inf, ymax = Inf, fill = state_color), alpha = 0.3) +
-      scale_fill_identity() +
-      ggnewscale::new_scale_fill()
-  }
-  g_axis = g_axis +
-    scale_x_continuous(limits = c(min(X$t)-1, max(X$t)+1), expand = expansion(add = 0)) +
-    theme_set(theme_minimal()) + theme(panel.background = element_rect(color = "transparent", fill = "transparent"))+
-    guides(fill = FALSE, alpha = FALSE)
-
-  g_base = g_axis +
-    theme_set(theme_minimal())+
-    theme(axis.title.x = element_blank(), axis.text.x = element_blank(),
-          axis.title.y = element_blank(),
-          plot.title = element_text(size = 10))
-
-  plotlist = list()
-  rel_heights = c()
-
-  if(!is.null(title)){
-    if(!is.character(title)) stop("title must be of type character \n")
-    g_title = ggplot() + ggtitle(title)
-    plotlist[["title"]] = g_title
-    rel_heights = c(rel_heights, 1)
-  }
-
-  if(any(state_columns)){
-    j = stringr::str_which(colnames(X),"state.*_col")
-    for(i in j){
-
-      # state name
-      state_label = colnames(X)[i] %>%
-        stringr::str_remove(.,"state") %>% stringr::str_remove(.,"_col") %>%
-        stringr::str_replace(.,"_"," ") %>%
-        stringr::str_remove(.,"^ ")
-
-      cols_to_select = c("seq_id","t",colnames(X)[i]); cols_names = c("seq_id","t","state_col")
-
-      # checking if the state has a probability attached to it.
-      k = which(colnames(X) == stringr::str_c("prob_state",state_label, sep = "_"))
-      if(length(k)>0){ cols_to_select = c(cols_to_select, stringr::str_c("prob_state",state_label, sep = "_")); cols_names = c(cols_names, "state_alpha") }
-
-      # selecting and formating the columns of interest
-      df = X %>% dplyr::select(dplyr::all_of(cols_to_select)) %>% magrittr::set_colnames(cols_names)
-      if(!("state_alpha" %in% cols_names)) df = df %>% dplyr::mutate(state_alpha = 1)
-
-      # plot title
-      if(stringr::str_length(state_label)>0) state_label = stringr::str_c("states (",state_label,")") else state_label = "states"
-
-
-      g_state = g_base +
-        geom_tile(data = df, aes(y = 1, width = 1, height = 1, fill = state_col, alpha = state_alpha))+
-        scale_fill_identity()+
-        ggtitle(state_label)+
-        scale_y_discrete(breaks = NULL, expand = expansion(add = 0.05))+
-        scale_alpha(limits = c(0,1), range = c(0, 1))
-
-      plotlist[[state_label]] = g_state
-      rel_heights = c(rel_heights,2)
-    }
-  }
-
-  for(var in X_names){
-    if(verbose) cat(var, "\n")
-    X_var = X %>% dplyr::select(t, all_of(var)) %>% dplyr::mutate(Y = X[,var] %>%  unlist())
-
-
-    if(model$marg_em_probs[[var]]$type == "non-par"){
-
-      g_var = g_base +
-        geom_tile(data = X_var, aes(y = Y, fill = Y)) +
-        scale_y_discrete(drop = FALSE, na.translate = FALSE)
-
-      if(!is.null(model$marg_em_probs[[var]]$viz_options$colors))
-        g_var = g_var +
-          scale_fill_manual(values = model$marg_em_probs[[var]]$viz_options$colors)
-
-      rel_heights = c(rel_heights, 1 + sqrt(length(model$marg_em_probs[[var]]$params$values)))
-    }
-
-    if(model$marg_em_probs[[var]]$type == "binom"){
-      y_breaks = 0:max(model$marg_em_probs[[var]]$params$size)
-      if(!is.null(model$marg_em_probs[[var]]$viz_options$color_max)) color_max = model$marg_em_probs[[var]]$viz_options$color_max else color_max = "indianred1"
-      g_var = g_base +
-        geom_tile(data = X_var, aes(y = Y, fill = Y)) +
-        scale_y_continuous(breaks = y_breaks, minor_breaks = NULL) +
-        scale_fill_gradient(low = "gray", high = color_max)
-
-      rel_heights = c(rel_heights, pmax(2, max(y_breaks)))
-    }
-
-    if(model$marg_em_probs[[var]]$type == "norm"){
-      if(!is.null(model$marg_em_probs[[var]]$viz_options$color_high)) color_high = model$marg_em_probs[[var]]$viz_options$color_high else color_high = "indianred1"
-      if(!is.null(model$marg_em_probs[[var]]$viz_options$color_low)) color_low = model$marg_em_probs[[var]]$viz_options$color_low else color_low = "steelblue2"
-      if(!is.null(model$marg_em_probs[[var]]$viz_options$color_mid)) color_mid = model$marg_em_probs[[var]]$viz_options$color_mid else color_mid = "gray80"
-      if(!is.null(model$marg_em_probs[[var]]$viz_options$mid_value)) mid_value = model$marg_em_probs[[var]]$viz_options$mid_value else mid_value = 0
-
-      g_var = g_base +
-        geom_line(data = X_var, aes(y = Y, col = Y)) +
-        geom_point(data = X_var, aes(y = Y, col = Y), size = 0.5) +
-        scale_color_gradient2(low = color_low, high = color_high, mid = color_mid, midpoint = mid_value)
-
-      rel_heights = c(rel_heights, 4)
-    }
-
-    g_var = g_var +
-      guides(col = FALSE, fill = FALSE)+
-      ggtitle(var)
-
-    plotlist[[var]] = g_var
-  }
-
-  plotlist$axis = g_axis
-  rel_heights = c(rel_heights, 1)
-
-  g = cowplot::plot_grid(plotlist = plotlist, align = "v", axis = "ltb", ncol = 1, rel_heights = rel_heights)
-  if(add_state_color_legend){
-    g = cowplot::plot_grid(g, plot_hsmm_state_color_legend(model = model), nrow = 1, rel_widths = c(10,1))
-  }
-
-  g
-}
-
-
-
-plot_hsmm_em_par_horizontal_states = function(model, verbose = FALSE, show_all_missing_probs = FALSE){
-
-  X_names = names(model$marg_em_probs)
-  state_names = model$state_names
-  state_cols = model$state_colors
-
-  DF_prob = data.frame()
-  DF_missing_prob = data.frame()
-  var_value_levels = data.frame(ix = 0, value = "init", stringsAsFactors = FALSE)
-  cols = c("state","variable", "value","prob")
-
-  for(var in X_names){
-    dist_type = model$marg_em_probs[[var]]$type
-    if(verbose) cat(var, "\n")
-    if(dist_type == "non-par"){
-      x = model$marg_em_probs[[var]]$params$values
-      df_prob = model$marg_em_probs[[var]]$params$probs %>%
-        as.data.frame() %>%
-        magrittr::set_colnames(state_names) %>%
-        dplyr::mutate(value = x) %>%
-        tidyr::pivot_longer(cols = -value, names_to = "state", values_to = "prob")
-    }else if(dist_type == "norm"){
-      means = model$marg_em_probs[[var]]$params$mean
-      sds = model$marg_em_probs[[var]]$params$sd
-      from = min(means-2.5*sds); to = max(means+2.5*sds)
-      x = axisTicks(c(from, to), log = FALSE, nint = 10)
-      df_prob = data.frame(state = state_names, mean = means, sd = sds)
-      df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
-      df_prob = df_prob %>%
-        mutate(value = rep(x, model$J),
-               prob = dnorm(value, mean = mean, sd = sd))
-    }else if(dist_type == "binom"){
-      sizes = model$marg_em_probs[[var]]$params$size
-      probs = model$marg_em_probs[[var]]$params$prob
-      x = 0:max(sizes)
-      df_prob = data.frame(state = state_names, size = sizes, p = probs)
-      df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
-      df_prob = df_prob %>%
-        mutate(value = rep(x, model$J),
-               prob = dbinom(value, size = size, prob = p))
-    }
-    # trick to keep the levels
-    nix = last(var_value_levels$ix)
-    ix = (nix+1):(nix+length(x))
-    this_var_value_levels = data.frame(ix = ix, value = x, stringsAsFactors = FALSE)
-    var_value_levels = rbind(var_value_levels, this_var_value_levels)
-
-    df_prob = df_prob %>%
-      mutate(variable = var,
-             value = this_var_value_levels$ix[match(value, this_var_value_levels$value)]) %>%
-      select(all_of(cols))
-    DF_prob = rbind(DF_prob, df_prob)
-
-    # missing probs
-    if(show_all_missing_probs | (!all(model$marg_em_probs[[var]]$missing_prob == 0))){
-      df_missing_prob = data.frame(state = state_names %>% factor(),
-                                   variable = var,
-                                   missing_prob = model$marg_em_probs[[var]]$missing_prob,
-                                   stringsAsFactors = FALSE)
-    }else{
-      df_missing_prob = data.frame()
-    }
-    DF_missing_prob = rbind(DF_missing_prob, df_missing_prob)
-  }
-
-  DF_prob = DF_prob %>%
-    mutate(state = factor(state, levels = state_names))
-
-
-  g_prob = ggplot(DF_prob, aes(x = prob, y = value, fill = state))
-  g_prob = g_prob +
-    facet_grid(variable ~ state, scale = "free_y", space = "free")+
-    scale_fill_manual(values = state_cols)+
-    guides(fill = FALSE)+
-    ylab("")+
-    scale_y_continuous(breaks = var_value_levels$ix, labels = var_value_levels$value, expand = c(0,0))+
-    geom_bar(stat = "identity", orientation = "y")+
-    ggtitle("Emission distributions")+
-    theme(axis.title.x = element_blank(),
-          axis.text.x = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.spacing.y = unit(20,unit = "pt"),
-          strip.text.y = element_text(angle = 0, hjust = 0))
-
-
-  if(nrow(DF_missing_prob) > 0){
-
-    DF_missing_prob = DF_missing_prob %>%
-      mutate(state = factor(state, levels = state_names))
-
-
-
-    g_missing = ggplot(DF_missing_prob, aes(x = state, xend = state, y = 0, yend = 1 - missing_prob, col = state))
-    g_missing = g_missing +
-      geom_segment(size = 2)+
-      scale_color_manual(values = state_cols)+
-      facet_grid(variable ~ state, scale = "free_x")+
-      scale_y_continuous(breaks = seq(0,1,len = 3), minor_breaks = seq(0,1,len = 5))+
-      guides(col = FALSE)+
-      xlab("")+ylab("")+
-      ggtitle("Probabilities of being observed")+
-      theme(axis.title.x  = element_blank(),
-            axis.text.x = element_blank(),
-            panel.grid.major.x = element_blank(),
-            strip.text.y = element_text(angle = 0, hjust = 0))
-
-    g = cowplot::plot_grid(g_prob,g_missing , align = "v", ncol = 1,
-                           rel_heights = c(1+1.5*length(unique(DF_prob$variable)),1+length(unique(DF_missing_prob$variable))))
-  }else{
-    g = g_prob
-  }
-
-  g
-
-}
-
-
-plot_hsmm_em_par_deprecated = function(model, state_names = NULL, state_cols = NULL, verbose = FALSE){
-
-  X_names = names(model$marg_em_probs)
-  if(is.null(state_names)) state_names = 1:model$J
-  if(is.null(state_cols)) state_cols = rainbow(n = model$J)
-
-  plotlist = list()
-  rel_heights = c()
-
-  for(var in X_names[c(1,2,3,4,5)]){
-    if(verbose) cat(var, "\n")
-    if(model$marg_em_probs[[var]]$type == "non-par"){
-      df_prob = model$marg_em_probs[[var]]$params$probs %>%
-        as.data.frame() %>%
-        magrittr::set_colnames(state_names) %>%
-        dplyr::mutate(value = model$marg_em_probs[[var]]$params$values %>%  factor(.,levels = model$marg_em_probs[[var]]$params$values)) %>%
-        tidyr::pivot_longer(cols = -value, names_to = "state", values_to = "prob")
-      rel_heights = c(rel_heights, length(model$marg_em_probs[[var]]$params$values))
-    }else if(model$marg_em_probs[[var]]$type == "norm"){
-      means = model$marg_em_probs[[var]]$params$mean
-      sds = model$marg_em_probs[[var]]$params$sd
-      x = seq(from = min(means-3*sds),to = max(means+3*sds), len = 15)
-      df_prob = data.frame(state = state_names, mean = means, sd = sds)
-      df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
-      df_prob = df_prob %>%
-        mutate(value = rep(x, model$J),
-               prob = dnorm(value, mean = mean, sd = sd))
-      #df_prob = df_prob %>% mutate(value = value  %>%  factor(., levels = x))
-
-      rel_heights = c(rel_heights, 5)
-    }else if(model$marg_em_probs[[var]]$type == "binom"){
-      sizes = model$marg_em_probs[[var]]$params$size
-      probs = model$marg_em_probs[[var]]$params$prob
-      x = 0:max(sizes)
-      df_prob = data.frame(state = state_names, size = sizes, p = probs)
-      df_prob = df_prob[rep(1:nrow(df_prob), each = length(x)),]
-      df_prob = df_prob %>%
-        mutate(value = rep(x, model$J),
-               prob = dbinom(value, size = size, prob = p))
-      rel_heights = c(rel_heights, length(x))
-    }
-
-    df_prob = df_prob %>% mutate(state = factor(state, levels = state_names))
-    df_missing_prob = data.frame(state = state_names %>% factor(),
-                                 missing_prob = model$marg_em_probs[[var]]$missing_prob,
-                                 stringsAsFactors = FALSE)
-
-    g_prob = ggplot(df_prob, aes(x = prob, y = value, fill = state))
-    if(model$marg_em_probs[[var]]$type == "binom") g_prob = g_prob + scale_y_continuous(breaks = unique(df_prob$value))
-    g_prob = g_prob +
-      facet_grid(. ~ state)+
-      scale_fill_manual(values = state_cols)+
-      guides(fill = FALSE)+
-      geom_bar(stat = "identity", orientation = "y")+
-      ylab(var)+
-      theme(axis.title.x = element_blank(),
-            axis.text.x = element_blank(),
-            strip.text = element_blank(),
-            panel.grid.minor = element_blank())
-
-    plotlist[[str_c(var,"_prob")]] = g_prob
-
-
-    g_missing = ggplot(df_missing_prob, aes(x = 1, y = 1, col = state, size = 1-missing_prob))
-    g_missing = g_missing +
-      geom_point()+
-      scale_size(range = c(0,2), limits = c(0,1))+
-      scale_color_manual(values = state_cols)+
-      facet_grid(. ~ state)+
-      guides(col = FALSE, size = FALSE)+
-      xlab("")+ylab("")+
-      theme(axis.title = element_blank(),
-            axis.text = element_blank(),
-            strip.text = element_blank(),
-            panel.grid = element_blank())
-    rel_heights = c(rel_heights, 1)
-    plotlist[[str_c(var,"_missing")]] = g_missing
-  }
-
-  g = cowplot::plot_grid(plotlist = plotlist, align = "v", ncol = 1, rel_heights = rel_heights)
-
-  g
-
-}
-
 

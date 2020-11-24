@@ -14,19 +14,24 @@ It is especially designed to model multivariate sequences with frequent missing 
 
 To install the package from github:
 * Open R or Rstudio
-* Make sure that the `devtools` library is installed or install it by typing `install.packages("devtools")`
-* Load the "devtools" library by typing 
+* Make sure that the `devtools` library is installed or install it with:
+
+`install.packages("devtools")`
+
+* Load the "devtools" library with: 
 
 `library(devtools)`
 
 * Install the `HiddenSemiMarkov` package with the command:
 
-`devtools::install_github("lasy/HiddenSemiMarkov")` or 
+`devtools::install_github("lasy/HiddenSemiMarkov")` 
+
+or, if you wish to build the vignette for this package:
 
 `devtools::install_github("lasy/HiddenSemiMarkov", build_vignettes = TRUE)` 
-if you wish to build the vignette for this package.
+
 
 ## To get started
 
-* Find examples in the vignette by typing `browseVignettes(package = "HiddenSemiMarkov")` 
+Find examples in the vignette by typing `browseVignettes(package = "HiddenSemiMarkov")` 
 or start specifying a model with the `specify_hsmm` function (type `?specify_hsmm` for documentation).

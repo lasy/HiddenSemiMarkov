@@ -164,7 +164,7 @@ specify_hsmm = function(J,
     dplyr::left_join(.,
               all_missing_prob,
               by = c("state", names(model$marg_em_probs))) %>%
-    dplyr::mutate(all_missing_p = all_missing_p %>% replace_na(0),
+    dplyr::mutate(all_missing_p = all_missing_p %>% tidyr::replace_na(0),
                   p = p + all_missing_p) %>%
     dplyr::select(-all_missing_p)
 
@@ -278,7 +278,6 @@ predict.hsmm <- function(object, newdata, method = "Viterbi", verbose = FALSE, .
 #' @export
 #' @examples
 #'
-#' library(tidyverse)
 #'
 #' my_model = simple_model
 #' Xsim = simulate_hsmm(my_model, n_state_transitions = 20)
@@ -293,7 +292,12 @@ predict.hsmm <- function(object, newdata, method = "Viterbi", verbose = FALSE, .
 #' Xsim$state_smoothed = smoothed$state_seq$state
 #' plot_hsmm_seq(X = Xsim %>% dplyr::select(-state_viterbi), model = my_model)
 #'
-#' ggplot(smoothed$probabilities, aes(x = t, y = state_prob, col = factor(state))) + geom_line() + scale_color_manual(values = my_model$state_colors)
+#' ggplot2::ggplot(
+#'    smoothed$probabilities,
+#'    aes(x = t, y = state_prob, col = factor(state))
+#'    ) +
+#' ggplot2::geom_line() +
+#' ggplot2::scale_color_manual(values = my_model$state_colors)
 #'
 predict_states_hsmm = function(model, X,
                                method = "Viterbi",
