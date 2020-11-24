@@ -1,3 +1,7 @@
+<!-- badges: start -->
+  [![Travis build status](https://travis-ci.com/lasy/HiddenSemiMarkov.svg?branch=master)](https://travis-ci.com/lasy/HiddenSemiMarkov)
+  <!-- badges: end -->
+
 # HiddenSemiMarkov
 HiddenSemiMarkov R package
 
