@@ -1,0 +1,8 @@
+base
+HiddenSemiMarkov
+dplyr
+purrr
+magrittr
+ggplot2
+ggpubr
+knitr

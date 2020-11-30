@@ -30,3 +30,7 @@ a ggplot object.
 \description{
 The edges width is proportional to the transition probability.
 }
+\examples{
+my_model = simple_model
+plot_hsmm_transitions(model = my_model)
+}

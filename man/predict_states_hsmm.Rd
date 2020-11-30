@@ -41,8 +41,6 @@ and \code{"FwBw"} applies the Forward-Backward algorithm and returns the probabi
 }
 \examples{
 
-library(tidyverse)
-
 my_model = simple_model
 Xsim = simulate_hsmm(my_model, n_state_transitions = 20)
 
@@ -54,8 +52,15 @@ plot_hsmm_seq(X = Xsim, model = my_model)
 # forward backward decoding
 smoothed = predict_states_hsmm(model = my_model, X = Xsim, method = "FwBw")
 Xsim$state_smoothed = smoothed$state_seq$state
-plot_hsmm_seq(X = Xsim \%>\% dplyr::select(-state_viterbi), model = my_model)
+plot_hsmm_seq(X = dplyr::select(Xsim, -state_viterbi), model = my_model)
 
-ggplot(smoothed$probabilities, aes(x = t, y = state_prob, col = factor(state))) + geom_line() + scale_color_manual(values = my_model$state_colors)
+library(ggplot2)
+
+ggplot(
+   smoothed$probabilities,
+   aes(x = t, y = state_prob, col = factor(state))
+   ) +
+geom_line() +
+scale_color_manual(values = my_model$state_colors)
 
 }

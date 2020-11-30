@@ -19,3 +19,7 @@ a ggplot object.
 \description{
 Visualizes the marginal emission distribution of a \code{hsmm} model.
 }
+\examples{
+my_model = simple_model
+plot_hsmm_marg_dist(model = my_model)
+}

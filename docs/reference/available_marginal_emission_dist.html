@@ -126,6 +126,17 @@
 
     <div class='dont-index'><p><code>available_marginal_emission_viz_options()</code> for the list of available visualization options for each of these distributions.</p></div>
 
+    <h2 class="hasAnchor" id="examples"><a class="anchor" href="#examples"></a>Examples</h2>
+    <pre class="examples"><div class='input'><span class='fu'>available_marginal_emission_dist</span><span class='op'>(</span><span class='op'>)</span>
+</div><div class='output co'>#&gt;          type distribution params parameter_type parameter_size
+#&gt; 1  continuous         norm   mean         double              J
+#&gt; 2  continuous         norm     sd         double              J
+#&gt; 3  continuous         beta shape1     double &gt;=0              J
+#&gt; 4  continuous         beta shape2     double &gt;=0              J
+#&gt; 5    discrete        binom   size            int              J
+#&gt; 6    discrete        binom   prob   double [0,1]              J
+#&gt; 7 categorical      non-par values      character             NV
+#&gt; 8 categorical      non-par  probs   double [0,1]         NV x J</div></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top">

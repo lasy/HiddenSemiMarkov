@@ -19,3 +19,7 @@ a ggplot object.
 \description{
 Visualizes the sojourn distributions of a hidden semi-Markov model.
 }
+\examples{
+my_model = simple_model
+plot_hsmm_sojourn_dist(model = my_model)
+}

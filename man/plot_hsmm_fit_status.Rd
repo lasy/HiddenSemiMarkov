@@ -19,3 +19,9 @@ a ggplot object.
 \description{
 If a model has been fitted using the function \code{fit_hsmm()}, this function can be used to visualize the convergence of the EM.
 }
+\examples{
+my_model = simple_model
+X_sim = simulate_hsmm(model = my_model, n_state_transitions = 20)
+fit_results = fit_hsmm(model = my_model, X = X_sim)
+plot_hsmm_fit_status(fit_output = fit_results)
+}

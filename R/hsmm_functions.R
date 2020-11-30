@@ -278,7 +278,6 @@ predict.hsmm <- function(object, newdata, method = "Viterbi", verbose = FALSE, .
 #' @export
 #' @examples
 #'
-#'
 #' my_model = simple_model
 #' Xsim = simulate_hsmm(my_model, n_state_transitions = 20)
 #'
@@ -290,14 +289,16 @@ predict.hsmm <- function(object, newdata, method = "Viterbi", verbose = FALSE, .
 #' # forward backward decoding
 #' smoothed = predict_states_hsmm(model = my_model, X = Xsim, method = "FwBw")
 #' Xsim$state_smoothed = smoothed$state_seq$state
-#' plot_hsmm_seq(X = Xsim %>% dplyr::select(-state_viterbi), model = my_model)
+#' plot_hsmm_seq(X = dplyr::select(Xsim, -state_viterbi), model = my_model)
 #'
-#' ggplot2::ggplot(
+#' library(ggplot2)
+#'
+#' ggplot(
 #'    smoothed$probabilities,
 #'    aes(x = t, y = state_prob, col = factor(state))
 #'    ) +
-#' ggplot2::geom_line() +
-#' ggplot2::scale_color_manual(values = my_model$state_colors)
+#' geom_line() +
+#' scale_color_manual(values = my_model$state_colors)
 #'
 predict_states_hsmm = function(model, X,
                                method = "Viterbi",

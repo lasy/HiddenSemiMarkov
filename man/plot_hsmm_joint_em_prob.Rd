@@ -17,3 +17,7 @@ a ggplot object.
 \description{
 Visualizes the joint emission probabilities (2x2) of a hidden semi-Markov model.
 }
+\examples{
+my_model = simple_model
+plot_hsmm_joint_em_prob(model = my_model)
+}

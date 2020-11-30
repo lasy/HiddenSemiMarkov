@@ -13,6 +13,9 @@ A \code{data.frame} with the following columns:
 \description{
 Provides the list of currently supported marginal emission distributions and the list of their parameters.
 }
+\examples{
+available_marginal_emission_dist()
+}
 \seealso{
 \code{available_marginal_emission_viz_options()} for the list of available visualization options for each of these distributions.
 }
