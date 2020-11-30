@@ -64,12 +64,20 @@ Finally, the function `label_sequences()` calls an interactive app that opens in
 
 ## Example 1: a simple 2-state, 3-variable model with no missing data.
 
-### Loading packages
+### Loading the `HiddenSemiMarkov` package and additional libraries.
 
 
 ```{r setup}
+
 library(HiddenSemiMarkov) 
-library(tidyverse) 
+
+# for data manipulation
+library(dplyr)
+library(purrr)
+library(magrittr)
+
+# for data visualization
+library(ggplot2)
 library(ggpubr)
 
 ```
