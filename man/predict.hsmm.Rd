@@ -14,6 +14,8 @@
 \item{method}{a \code{character} specifying the method to be used, i.e. either \code{"Viterbi"} or \code{"Fwbw"}.}
 
 \item{verbose}{a logical (default = \code{FALSE}). Should the function print additional information?}
+
+\item{...}{additional arguments.}
 }
 \description{
 This function is a wrapper around the function \code{predict_states_hsmm()}.

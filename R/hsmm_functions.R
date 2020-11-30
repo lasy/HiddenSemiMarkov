@@ -246,7 +246,7 @@ specify_hsmm = function(J,
 #' @param newdata a \code{data.frame} with the observation sequences.
 #' @param method a \code{character} specifying the method to be used, i.e. either \code{"Viterbi"} or \code{"Fwbw"}.
 #' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
-#'
+#' @param ... additional arguments.
 #' @seealso see \code{predict_states_hsmm()} for the full description, options and examples.
 #'
 predict.hsmm <- function(object, newdata, method = "Viterbi", verbose = FALSE, ...) {
