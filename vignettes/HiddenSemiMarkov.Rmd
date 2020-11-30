@@ -84,7 +84,7 @@ library(ggpubr)
 
 ```{r hidden-setup, echo = FALSE, results='hide', warning=FALSE, include = FALSE}
 
-library(bookdown)
+#library(bookdown)
 library(knitr)
 #library(kableExtra)
 
