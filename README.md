@@ -2,7 +2,6 @@
   [![Travis build status](https://travis-ci.com/lasy/HiddenSemiMarkov.svg?branch=master)](https://travis-ci.com/lasy/HiddenSemiMarkov)
   <!-- badges: end -->
   
-  :warning: The package is not operational yet. It will be up and running shortly :warning:
 
 # HiddenSemiMarkov
 
