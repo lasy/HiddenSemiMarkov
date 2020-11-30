@@ -33,5 +33,9 @@ or, if you wish to build the vignette for this package:
 
 ## To get started
 
-Find examples in the vignette by typing `browseVignettes(package = "HiddenSemiMarkov")` 
+Type 
+
+`library(HiddenSemiMarkov)` 
+
+and find examples in the vignette by typing `browseVignettes(package = "HiddenSemiMarkov")` 
 or start specifying a model with the `specify_hsmm` function (type `?specify_hsmm` for documentation).
