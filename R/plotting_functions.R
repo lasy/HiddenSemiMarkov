@@ -405,7 +405,7 @@ plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE
     scale_fill_manual(values = state_cols, guide = "none") +
     scale_alpha("probability of being observed", range = c(0,1), limits = c(0,1),
                 guide = ifelse(show_missing_probs,"legend","none")) +
-    facet_grid(state ~ var_name, scale = "free", space = "free") +
+    facet_grid(state ~ var_name, scales = "free", space = "free") +
     theme_set(theme_minimal()) +
     theme(legend.position = "bottom",
           axis.text.x = element_text(angle = 90, hjust = 1),
@@ -513,7 +513,7 @@ plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE
 #
 #   g_prob = ggplot(DF_prob, aes(x = value, y = prob, fill = state, alpha = observed_prob))
 #   g_prob = g_prob +
-#     facet_grid(state ~ variable, scale = "free_x", space = "free")+
+#     facet_grid(state ~ variable, scales = "free_x", space = "free")+
 #     scale_fill_manual(values = state_cols)+
 #     guides(fill = FALSE)+
 #     ylab("")+
@@ -631,7 +631,7 @@ plot_hsmm_sojourn_dist = function(model, maxt = 100, one_panel_per_state = FALSE
     geom_line()+
     scale_color_manual("States", values = state_cols, labels = state_names)
 
-  if(one_panel_per_state) g = g + facet_grid(state ~ ., scale = "free")
+  if(one_panel_per_state) g = g + facet_grid(state ~ ., scales = "free")
 
   g
 }
@@ -681,11 +681,11 @@ plot_hsmm_joint_em_prob = function(model, title = ""){
     }
   }
 
-  g = ggarrange(plotlist = plotlist , nrow = 1)
+  g = ggpubr::ggarrange(plotlist = plotlist , nrow = 1)
 
   if(title != ""){
     g_title = ggplot()+ggtitle(title)
-    g = ggarrange(g_title, g, ncol = 1, heights = c(1,10))
+    g = ggpubr::ggarrange(g_title, g, ncol = 1, heights = c(1,10))
   }
 
   g

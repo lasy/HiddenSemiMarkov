@@ -23,7 +23,7 @@
 #' This element is a list in which each element specifies a given visualization option.
 #' Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
 #' See function \code{plot_hsmm_seq()} for visualization of observation sequences.
-#' @param global_censoring_prob (optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)
+#' @param censoring_prob (optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)
 #' @param state_names (optional) a vector of characters. Names associated to each state. Must be of length \code{J}. If unspecified, the states are numbered from 1 to \code{J}
 #' @param state_colors (optional) a vector of color-specifying characters. Colors associated to each state. Must be of length \code{J}. If unspecified, the colors are picked from the \code{viridis} palette.
 #' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
