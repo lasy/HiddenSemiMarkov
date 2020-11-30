@@ -34,8 +34,7 @@ simulate_hsmm = function(model,
                          seq_id = NULL,
                          n_state_transitions = NULL, n_timepoints = NULL,
                          seed = NULL,
-                         all_states = FALSE,  min_tp_per_state = NULL, mult_seq_allowed = TRUE,
-                         state_seq = NULL){
+                         all_states = FALSE,  min_tp_per_state = NULL, mult_seq_allowed = TRUE){
 
   ##### What this function does:
   # 0. checks the input variables

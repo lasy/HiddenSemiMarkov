@@ -42,6 +42,10 @@ fit_hsmm(
 \item{ground_truth}{(optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known. Default is an empty \code{data.frame}, _i.e._ no ground truth.}
 
 \item{trust_in_ground_truth}{(optional) a double between 0 and 1 specifying the trust in the ground truth. A value of 0 indicates no trust and is equivalent to not providing ground-truth. A value of 1 indicates full trust and the ground truth will not be modulated by the probability of the values of the observations.}
+
+\item{verbose}{a logical (default = \code{FALSE}). Should the function print additional information?}
+
+\item{graphical}{a logical (default = \code{FALSE}).}
 }
 \value{
 A list. First element of the list (\code{$model}) is a \code{hsmm} object (the fitted model) and the second element (\code{$fit_param}) provides information about the EM-procedure. The second element can be visualized by calling the function \code{plot_hsmm_fit_param()}.

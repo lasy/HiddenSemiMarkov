@@ -14,6 +14,7 @@
 #'    In addition to the sequence ID (\code{seq_id}), time-point (\code{t}) and variable columns, state sequences that the user would like to validate or compare to the ground truth can be specified as additional columns.
 #'    These columns names should be \code{state_xyz} where \code{xyz} is a string identifying the decoding. \code{xyz} cannot be \code{ground_truth}, any other string is accepted.
 #' @param ground_truth (optional) a \code{data.frame} providing the initial set of labeled time-points. If not provided, the ground truth is initialized to an empty \code{data.frame}.
+#' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
 #'
 #' @return a \code{data.frame} which combines the initial ground truth (if provided) and the newly labeled time-points.
 #' @importFrom magrittr %>%

@@ -9,9 +9,9 @@ plot_hsmm_marg_dist(model, show_missing_probs = TRUE, verbose = FALSE)
 \arguments{
 \item{model}{a \code{hsmm} object specifying the model for which the marginal emission distributions should be visualized.}
 
-\item{verbose}{(optional) a \code{logical} specifying if the internal steps of the function should be printed.}
+\item{show_missing_probs}{(optional) a \code{logical} specifying if transparency should be used to reflect how likely variables are going to be missing in each state.}
 
-\item{show_missing_prob}{(optional) a \code{logical} specifying if transparency should be used to reflect how likely variables are going to be missing in each state.}
+\item{verbose}{(optional) a \code{logical} specifying if the internal steps of the function should be printed.}
 }
 \value{
 a ggplot object.

@@ -172,12 +172,12 @@ Type <code>marginal_emission_viz_options()</code> to obtain the list and descrip
 See function <code><a href='plot_hsmm_seq.html'>plot_hsmm_seq()</a></code> for visualization of observation sequences.</p></td>
     </tr>
     <tr>
-      <th>verbose</th>
-      <td><p>a logical (default = <code>FALSE</code>). Should the function print additional information?</p></td>
+      <th>censoring_probs</th>
+      <td><p>(optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)</p></td>
     </tr>
     <tr>
-      <th>censoring_prob</th>
-      <td><p>(optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)</p></td>
+      <th>verbose</th>
+      <td><p>a logical (default = <code>FALSE</code>). Should the function print additional information?</p></td>
     </tr>
     </table>
 

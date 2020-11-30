@@ -23,7 +23,7 @@
 #' This element is a list in which each element specifies a given visualization option.
 #' Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
 #' See function \code{plot_hsmm_seq()} for visualization of observation sequences.
-#' @param censoring_prob (optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)
+#' @param censoring_probs (optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)
 #' @param state_names (optional) a vector of characters. Names associated to each state. Must be of length \code{J}. If unspecified, the states are numbered from 1 to \code{J}
 #' @param state_colors (optional) a vector of color-specifying characters. Colors associated to each state. Must be of length \code{J}. If unspecified, the colors are picked from the \code{viridis} palette.
 #' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
@@ -245,6 +245,7 @@ specify_hsmm = function(J,
 #' @param object an \code{hsmm} model specified via the \code{specify_hsmm()} function.
 #' @param newdata a \code{data.frame} with the observation sequences.
 #' @param method a \code{character} specifying the method to be used, i.e. either \code{"Viterbi"} or \code{"Fwbw"}.
+#' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
 #'
 #' @seealso see \code{predict_states_hsmm()} for the full description, options and examples.
 #'
@@ -661,6 +662,9 @@ predict_states_hsmm = function(model, X,
 #' @param N0 (optional) a positive number specifying the strength of the prior, i.e. the number of observations (or believed number of observations) which informed the specification of the emission distributions. This number will be used to weight the specified emission distribution against the total lenght of the sequences provided for the fit.
 #' @param use_sojourn_prior (optional) a logical. Default is \code{TRUE}. Specifies if the specified sojourn distributions should be used as a prior when updating the prior distributions at the M-step of the EM.
 #' @param trust_in_ground_truth (optional) a double between 0 and 1 specifying the trust in the ground truth. A value of 0 indicates no trust and is equivalent to not providing ground-truth. A value of 1 indicates full trust and the ground truth will not be modulated by the probability of the values of the observations.
+#' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
+#' @param graphical a logical (default = \code{FALSE}).
+#'
 #' @keywords HSMM
 #' @return A list. First element of the list (\code{$model}) is a \code{hsmm} object (the fitted model) and the second element (\code{$fit_param}) provides information about the EM-procedure. The second element can be visualized by calling the function \code{plot_hsmm_fit_param()}.
 #'

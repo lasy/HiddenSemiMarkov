@@ -333,7 +333,7 @@ plot_hsmm_state_colors = function(model){
 #' Visualizes the marginal emission distribution of a \code{hsmm} model.
 #'
 #' @param model a \code{hsmm} object specifying the model for which the marginal emission distributions should be visualized.
-#' @param show_missing_prob (optional) a \code{logical} specifying if transparency should be used to reflect how likely variables are going to be missing in each state.
+#' @param show_missing_probs (optional) a \code{logical} specifying if transparency should be used to reflect how likely variables are going to be missing in each state.
 #' @param verbose (optional) a \code{logical} specifying if the internal steps of the function should be printed.
 #'
 #' @return a ggplot object.

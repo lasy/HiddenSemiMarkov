@@ -44,9 +44,9 @@ This element is a list in which each element specifies a given visualization opt
 Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
 See function \code{plot_hsmm_seq()} for visualization of observation sequences.}
 
-\item{verbose}{a logical (default = \code{FALSE}). Should the function print additional information?}
+\item{censoring_probs}{(optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)}
 
-\item{censoring_prob}{(optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)}
+\item{verbose}{a logical (default = \code{FALSE}). Should the function print additional information?}
 }
 \value{
 An object of class \code{hsmm} which can be used to simulate time series with the \code{simulate_hsmm()} function or to decode time-series with the \code{predict_hsmm_states()} function. The returned \code{hsmm} object (model) can also be fit to specific sequences with the \code{fit_hsmm()} function.
