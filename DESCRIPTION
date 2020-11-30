@@ -21,7 +21,8 @@ Imports:
     viridis,
     ggnewscale,
     lifecycle,
-    geomnet
+    geomnet,
+    ggpubr
 Depends: 
     R (>= 2.10)
 Suggests: 
