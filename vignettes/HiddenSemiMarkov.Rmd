@@ -15,19 +15,6 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup, include = FALSE}
-library(HiddenSemiMarkov)
-library(tidyverse)
-library(ggpubr)
-```
-
-```{r hidden-setup, echo = FALSE, results='hide', warning=FALSE, include = FALSE}
-
-library(bookdown)
-library(kableExtra)
-
-```
-
 
 __Introduction__
 
@@ -76,6 +63,24 @@ Finally, the function `label_sequences()` calls an interactive app that opens in
 
 
 ## Example 1: a simple 2-state, 3-variable model with no missing data.
+
+### Loading packages
+
+
+```{r setup}
+library(HiddenSemiMarkov) 
+library(tidyverse) 
+library(ggpubr)
+
+```
+
+```{r hidden-setup, echo = FALSE, results='hide', warning=FALSE, include = FALSE}
+
+library(bookdown)
+library(kableExtra)
+
+```
+
 
 ### Model specification
 
@@ -160,7 +165,7 @@ The marginal emission distributions $\Pr(X_k|S_j)$ can be described as parametri
 
 To check the currently supported emission distribution and how to specify them, one can use the function `available_marginal_emission_dist()`.
 
-```{r available-marg-em}
+```{r available-marg-em, echo = FALSE}
 
 kable(available_marginal_emission_dist(),
       booktab = TRUE,
