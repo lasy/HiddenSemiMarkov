@@ -22,6 +22,8 @@
 #' @keywords HSMM
 #' @return A \code{data.frame} with the following columns: \code{seq_id}, the identifier of the sequence, \code{t} the time-stamp, \code{state} the hidden state and one additional column for each specified variable.
 #'
+#' @references J. O’Connell, S. Hojsgaard, Hidden semi-Markov models for multiple observation sequences: The mhsmm package for R. Journal of Statistical Software. 39, 1–22 (2011) \url{https://www.jstatsoft.org/article/view/v039i04}
+#'
 #' @export
 #' @importFrom magrittr %>%
 #' @examples

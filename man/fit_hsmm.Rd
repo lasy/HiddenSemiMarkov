@@ -67,4 +67,9 @@ Xsim$state_viterbi_init = viterbi_init$state_seq$state
 Xsim$state_viterbi_fit = viterbi_fit$state_seq$state
 plot_hsmm_seq(X = Xsim, model = my_model)
 }
+\references{
+Y. Guédon, Estimating Hidden Semi-Markov Chains from Discrete Sequences. Journal of Computational and Graphical Statistics. 12, 604–639 (2003) \url{https://www.tandfonline.com/doi/abs/10.1198/1061860032030}
+
+J. O’Connell, S. Hojsgaard, Hidden semi-Markov models for multiple observation sequences: The mhsmm package for R. Journal of Statistical Software. 39, 1–22 (2011) \url{https://www.jstatsoft.org/article/view/v039i04}
+}
 \keyword{HSMM}

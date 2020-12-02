@@ -64,3 +64,8 @@ geom_line() +
 scale_color_manual(values = my_model$state_colors)
 
 }
+\references{
+Y. Guédon, Estimating Hidden Semi-Markov Chains from Discrete Sequences. Journal of Computational and Graphical Statistics. 12, 604–639 (2003) \url{https://www.tandfonline.com/doi/abs/10.1198/1061860032030}
+
+J. O’Connell, S. Hojsgaard, Hidden semi-Markov models for multiple observation sequences: The mhsmm package for R. Journal of Statistical Software. 39, 1–22 (2011) \url{https://www.jstatsoft.org/article/view/v039i04}
+}

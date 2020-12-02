@@ -276,6 +276,8 @@ predict.hsmm <- function(object, newdata, method = "Viterbi", verbose = FALSE, .
 #' @param trust_in_ground_truth (optional) a double in [0,1] that indicates the reliability of the provided ground-truth. 1 means "full trust", 0 means "no trust". Default value is 0.75.
 #' @param verbose logical. Should the function prints additional information?
 #'
+#' @references Y. Guédon, Estimating Hidden Semi-Markov Chains from Discrete Sequences. Journal of Computational and Graphical Statistics. 12, 604–639 (2003) \url{https://www.tandfonline.com/doi/abs/10.1198/1061860032030}
+#' @references J. O’Connell, S. Hojsgaard, Hidden semi-Markov models for multiple observation sequences: The mhsmm package for R. Journal of Statistical Software. 39, 1–22 (2011) \url{https://www.jstatsoft.org/article/view/v039i04}
 #' @export
 #' @examples
 #'
@@ -667,6 +669,9 @@ predict_states_hsmm = function(model, X,
 #'
 #' @keywords HSMM
 #' @return A list. First element of the list (\code{$model}) is a \code{hsmm} object (the fitted model) and the second element (\code{$fit_param}) provides information about the EM-procedure. The second element can be visualized by calling the function \code{plot_hsmm_fit_param()}.
+#'
+#' @references Y. Guédon, Estimating Hidden Semi-Markov Chains from Discrete Sequences. Journal of Computational and Graphical Statistics. 12, 604–639 (2003) \url{https://www.tandfonline.com/doi/abs/10.1198/1061860032030}
+#' @references J. O’Connell, S. Hojsgaard, Hidden semi-Markov models for multiple observation sequences: The mhsmm package for R. Journal of Statistical Software. 39, 1–22 (2011) \url{https://www.jstatsoft.org/article/view/v039i04}
 #'
 #' @export
 #' @importFrom magrittr %>%

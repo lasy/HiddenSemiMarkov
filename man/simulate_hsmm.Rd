@@ -48,4 +48,7 @@ my_model = simple_model # simple_model is a model attached to the HiddenSemiMark
 Xsim = simulate_hsmm(model = my_model, n_state_transitions = 10)
 plot_hsmm_seq(model = my_model, X = Xsim)
 }
+\references{
+J. O’Connell, S. Hojsgaard, Hidden semi-Markov models for multiple observation sequences: The mhsmm package for R. Journal of Statistical Software. 39, 1–22 (2011) \url{https://www.jstatsoft.org/article/view/v039i04}
+}
 \keyword{HSMM}
