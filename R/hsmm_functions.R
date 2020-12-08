@@ -49,7 +49,7 @@
 #' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
 #'
 #' @keywords HSMM
-#' @return An object of class \code{hsmm} which can be used to simulate time series with the \code{simulate_hsmm()} function or to decode time-series with the \code{predict_hsmm_states()} function. The returned \code{hsmm} object (model) can also be fit to specific sequences with the \code{fit_hsmm()} function.
+#' @return An object of class \code{hsmm} which can be used to simulate time series with the \code{simulate_hsmm()} function or to decode time-series with the \code{predict_states_hsmm()} function. The returned \code{hsmm} object (model) can also be fit to specific sequences with the \code{fit_hsmm()} function.
 #'
 #' @seealso \code{simulate_hsmm()} to simulate a sequence of hidden states and observations following the model specifications, \code{predict_states_hsmm()} to predict the sequence of hidden states from observation time-series and \code{fit_hsmm()} to fit a model to sequences of observations.
 #'

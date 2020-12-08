@@ -69,7 +69,7 @@ Can be specified as a vector of length J of values between 0 (never censored) an
 \item{verbose}{a logical (default = \code{FALSE}). Should the function print additional information?}
 }
 \value{
-An object of class \code{hsmm} which can be used to simulate time series with the \code{simulate_hsmm()} function or to decode time-series with the \code{predict_hsmm_states()} function. The returned \code{hsmm} object (model) can also be fit to specific sequences with the \code{fit_hsmm()} function.
+An object of class \code{hsmm} which can be used to simulate time series with the \code{simulate_hsmm()} function or to decode time-series with the \code{predict_states_hsmm()} function. The returned \code{hsmm} object (model) can also be fit to specific sequences with the \code{fit_hsmm()} function.
 }
 \description{
 This function returns an object of class \code{hsmm} from the parameters passed as arguments.
