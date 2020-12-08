@@ -37,7 +37,7 @@
 #'     The same function (\code{available_marginal_emission_dist()}) provides information on how these parameters must be specified.
 #'     An optional third element can be added to the variable list: \code{viz-options}.
 #'     This element is a list in which each element specifies a given visualization option.
-#'     Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
+#'     Type \code{available_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
 #'     See function \code{plot_hsmm_seq()} for visualization of observation sequences.
 #'     If unspecified (default), it is assumed that the model describes time-series of a single continuous variable normally distributed around \code{j} (the state index) with a unitary standard deviation.
 #' @param censoring_probs (optional) the probabilities of observations being censored in each state.
