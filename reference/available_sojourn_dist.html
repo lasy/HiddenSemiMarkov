@@ -126,12 +126,20 @@
     <pre class="examples"><div class='input'><span class='fu'>available_sojourn_dist</span><span class='op'>(</span><span class='op'>)</span>
 </div><div class='output co'>#&gt;         distribution_type              parameters
 #&gt; 1           nonparametric                       d
-#&gt; 2 ksmoothed_nonparametric                       d
+#&gt; 2 ksmoothed_nonparametric                   d, bw
 #&gt; 3                   gamma            shape, scale
 #&gt; 4                 poisson           shift, lambda
 #&gt; 5                   lnorm          meanlog, sdlog
 #&gt; 6             logarithmic                   shape
-#&gt; 7                  nbinom size, mu or prob, shift</div></pre>
+#&gt; 7                  nbinom size, mu or prob, shift
+#&gt;                                                                                                                                                               parameters_description
+#&gt; 1                                                                                                                                      'd' is the non-parametric probability density
+#&gt; 2 'd' is the non-parametric probability density, 'bw' is the smoothing bandwidth. If left empty, default 'bw' value of the 'density' function is users (see '?density' for details).
+#&gt; 3                                                                                                         'shape' and 'scale' are the gamma distribution parameters (rate = 1/scale)
+#&gt; 4                                                      'lambda' is Poisson distribution parameter and 'shift' is an additional parameter allowing to shift the Poisson distribution.
+#&gt; 5                                                                                         'meanlog' and 'sdlog' are the log-normal distribution parameters (see ?rlnorm for details)
+#&gt; 6                                                                                                                     'shape' is the decay parameter of the logarithmic distribution
+#&gt; 7                                   'size' and 'mu'/'prob' are the negative binomial distribution parameters. 'shift' is an additional parameter allowing to shift the distribution.</div></pre>
   </div>
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
     <nav id="toc" data-toggle="toc" class="sticky-top">

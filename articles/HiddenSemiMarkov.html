@@ -172,6 +172,9 @@ distribution_type
 <th style="text-align:left;">
 parameters
 </th>
+<th style="text-align:left;">
+parameters_description
+</th>
 </tr></thead>
 <tbody>
 <tr>
@@ -181,13 +184,19 @@ nonparametric
 <td style="text-align:left;">
 d
 </td>
+<td style="text-align:left;">
+‘d’ is the non-parametric probability density
+</td>
 </tr>
 <tr>
 <td style="text-align:left;">
 ksmoothed_nonparametric
 </td>
 <td style="text-align:left;">
-d
+d, bw
+</td>
+<td style="text-align:left;">
+‘d’ is the non-parametric probability density, ‘bw’ is the smoothing bandwidth. If left empty, default ‘bw’ value of the ‘density’ function is users (see ‘?density’ for details).
 </td>
 </tr>
 <tr>
@@ -197,6 +206,9 @@ gamma
 <td style="text-align:left;">
 shape, scale
 </td>
+<td style="text-align:left;">
+‘shape’ and ‘scale’ are the gamma distribution parameters (rate = 1/scale)
+</td>
 </tr>
 <tr>
 <td style="text-align:left;">
@@ -204,6 +216,9 @@ poisson
 </td>
 <td style="text-align:left;">
 shift, lambda
+</td>
+<td style="text-align:left;">
+‘lambda’ is Poisson distribution parameter and ‘shift’ is an additional parameter allowing to shift the Poisson distribution.
 </td>
 </tr>
 <tr>
@@ -213,6 +228,9 @@ lnorm
 <td style="text-align:left;">
 meanlog, sdlog
 </td>
+<td style="text-align:left;">
+‘meanlog’ and ‘sdlog’ are the log-normal distribution parameters (see ?rlnorm for details)
+</td>
 </tr>
 <tr>
 <td style="text-align:left;">
@@ -221,6 +239,9 @@ logarithmic
 <td style="text-align:left;">
 shape
 </td>
+<td style="text-align:left;">
+‘shape’ is the decay parameter of the logarithmic distribution
+</td>
 </tr>
 <tr>
 <td style="text-align:left;">
@@ -228,6 +249,9 @@ nbinom
 </td>
 <td style="text-align:left;">
 size, mu or prob, shift
+</td>
+<td style="text-align:left;">
+‘size’ and ‘mu’/‘prob’ are the negative binomial distribution parameters. ‘shift’ is an additional parameter allowing to shift the distribution.
 </td>
 </tr>
 </tbody>
@@ -594,12 +618,20 @@ NV x J
 <code class="sourceCode R"><span class="fu"><a href="../reference/available_sojourn_dist.html">available_sojourn_dist</a></span><span class="op">(</span><span class="op">)</span>
 <span class="co">#&gt;         distribution_type              parameters</span>
 <span class="co">#&gt; 1           nonparametric                       d</span>
-<span class="co">#&gt; 2 ksmoothed_nonparametric                       d</span>
+<span class="co">#&gt; 2 ksmoothed_nonparametric                   d, bw</span>
 <span class="co">#&gt; 3                   gamma            shape, scale</span>
 <span class="co">#&gt; 4                 poisson           shift, lambda</span>
 <span class="co">#&gt; 5                   lnorm          meanlog, sdlog</span>
 <span class="co">#&gt; 6             logarithmic                   shape</span>
-<span class="co">#&gt; 7                  nbinom size, mu or prob, shift</span></code></pre></div>
+<span class="co">#&gt; 7                  nbinom size, mu or prob, shift</span>
+<span class="co">#&gt;                                                                                                                                                               parameters_description</span>
+<span class="co">#&gt; 1                                                                                                                                      'd' is the non-parametric probability density</span>
+<span class="co">#&gt; 2 'd' is the non-parametric probability density, 'bw' is the smoothing bandwidth. If left empty, default 'bw' value of the 'density' function is users (see '?density' for details).</span>
+<span class="co">#&gt; 3                                                                                                         'shape' and 'scale' are the gamma distribution parameters (rate = 1/scale)</span>
+<span class="co">#&gt; 4                                                      'lambda' is Poisson distribution parameter and 'shift' is an additional parameter allowing to shift the Poisson distribution.</span>
+<span class="co">#&gt; 5                                                                                         'meanlog' and 'sdlog' are the log-normal distribution parameters (see ?rlnorm for details)</span>
+<span class="co">#&gt; 6                                                                                                                     'shape' is the decay parameter of the logarithmic distribution</span>
+<span class="co">#&gt; 7                                   'size' and 'mu'/'prob' are the negative binomial distribution parameters. 'shift' is an additional parameter allowing to shift the distribution.</span></code></pre></div>
 <div id="parametric-vs-non-parametric-sojourns-" class="section level3">
 <h3 class="hasAnchor">
 <a href="#parametric-vs-non-parametric-sojourns-" class="anchor"></a>Parametric vs non-parametric sojourns.</h3>
