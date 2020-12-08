@@ -10,13 +10,34 @@
 
 available_sojourn_dist = function(){
   available_sojourn = rbind(
-    data.frame(distribution_type = "nonparametric", parameters = "d", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "ksmoothed_nonparametric", parameters = "d", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "gamma", parameters = "shape, scale", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "poisson", parameters = "shift, lambda", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "lnorm", parameters = "meanlog, sdlog", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "logarithmic", parameters = "shape", stringsAsFactors = FALSE),
-    data.frame(distribution_type = "nbinom", parameters = "size, mu or prob, shift", stringsAsFactors = FALSE)
+    data.frame(distribution_type = "nonparametric",
+               parameters = "d",
+               parameters_description = "'d' is the non-parametric probability density",
+               stringsAsFactors = FALSE),
+    data.frame(distribution_type = "ksmoothed_nonparametric",
+               parameters = "d, bw",
+               parameters_description = "'d' is the non-parametric probability density, 'bw' is the smoothing bandwidth. If left empty, default 'bw' value of the 'density' function is users (see '?density' for details).",
+               stringsAsFactors = FALSE),
+    data.frame(distribution_type = "gamma",
+               parameters = "shape, scale",
+               parameters_description = "'shape' and 'scale' are the gamma distribution parameters (rate = 1/scale)",
+               stringsAsFactors = FALSE),
+    data.frame(distribution_type = "poisson",
+               parameters = "shift, lambda",
+               parameters_description = "'lambda' is Poisson distribution parameter and 'shift' is an additional parameter allowing to shift the Poisson distribution.",
+               stringsAsFactors = FALSE),
+    data.frame(distribution_type = "lnorm",
+               parameters = "meanlog, sdlog",
+               parameters_description = "'meanlog' and 'sdlog' are the log-normal distribution parameters (see ?rlnorm for details)",
+               stringsAsFactors = FALSE),
+    data.frame(distribution_type = "logarithmic",
+               parameters = "shape",
+               parameters_description = "'shape' is the decay parameter of the logarithmic distribution",
+               stringsAsFactors = FALSE),
+    data.frame(distribution_type = "nbinom",
+               parameters = "size, mu or prob, shift",
+               parameters_description = "'size' and 'mu'/'prob' are the negative binomial distribution parameters. 'shift' is an additional parameter allowing to shift the distribution.",
+               stringsAsFactors = FALSE)
   )
   available_sojourn
 }

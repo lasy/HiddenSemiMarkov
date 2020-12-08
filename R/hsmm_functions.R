@@ -6,26 +6,46 @@
 #'
 #' This function returns an object of class \code{hsmm} from the parameters passed as arguments.
 #' @param J an integer. The number of hidden states.
-#' @param init a vector of double. The initial probabilities associated with each states. Must be a vector of length \code{J}. If values do not sum to 1 a warning message is displayed and the vector is divided by its sum.
-#' @param transition a matrix of double. The transition probabilities.
-#'     Must be a matrix of size \code{J x J} in which the element \code{(r, c)} provides the probability of transitioning from state \code{r} to state \code{c}.
-#'     The diagonal elements must be equal to zero except for absorbing states. For absorbing states, all the other elements of that row must be zero. For other states, if there are non-zero diagonal elements, a warning message is displayed and the elements are set to zero.
+#' @param init (optional) a vector of \code{J} double.
+#'     The initial probabilities associated with each states.
+#'     If values do not sum to 1 a warning message is displayed and the vector is divided by its sum.
+#'     If unspecified (default), uniform initial probabilities are assumed.
+#' @param transition (optional) a \code{J x J} matrix of double. The matrix of transition probabilities in which the element \code{(r, c)} provides the probability of transitioning from state \code{r} to state \code{c}.
+#'     The diagonal elements must be equal to zero except for absorbing states.
+#'     For absorbing states, all the other elements of that row must be zero.
+#'     For other states, if there are non-zero diagonal elements, a warning message is displayed and the elements are set to zero.
 #'     If the sum over the rows is different that one, a warning message is displayed and the rows are divided by their sum.
-#' @param sojourn a list. The sojourn distributions. The list must have at least two elements: a \code{type} element which specifies the type of sojourn distributions and the other elements are the distribution parameters.
-#' Use the function \code{available_sojourn_dist()} to see the supported sojourn distributions.
-#' @param marg_em_probs a list. The marginal emission distributions. The list has one element per variable.
-#' The name of that element must be the name of the variable. Variable names cannot contain the character '_'.
-#' Each element of the list is itself a list of at least two elements.
-#' The first one, named \code{type}, is used to specify the distribution family. Type \code{available_marginal_emission_dist()} to get the currently supported distribution families.
-#' The second element of the list, \code{params}, is a list that provides the parameters of the model in each state.
-#' The same function (\code{available_marginal_emission_dist()}) provides information on how these parameters must be specified.
-#' An optional third element can be added to the variable list: \code{viz-options}.
-#' This element is a list in which each element specifies a given visualization option.
-#' Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
-#' See function \code{plot_hsmm_seq()} for visualization of observation sequences.
-#' @param censoring_probs (optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)
-#' @param state_names (optional) a vector of characters. Names associated to each state. Must be of length \code{J}. If unspecified, the states are numbered from 1 to \code{J}
-#' @param state_colors (optional) a vector of color-specifying characters. Colors associated to each state. Must be of length \code{J}. If unspecified, the colors are picked from the \code{viridis} palette.
+#'     If unspecified (default), uniform transition probabilities are assumed between each state with no absorbing state.
+#' @param sojourn (optional) a list. The sojourn distributions.
+#'     The sojourn distributions can be specified with the same distribution family for all states or each state can be specified independently.
+#'     In the first case (same distribution family for all states),
+#'     the list must have at least two elements:
+#'     a \code{type} element which specifies the type of sojourn distributions and the other elements are the distribution parameters (each of length \code{J}).
+#'     In the second case (different distribution families for each state),
+#'     the list must have \code{J} elements.
+#'     Each of these \code{J} element is a list in which the first element (\code{type}) specifies the distribution family and the remaining elements are the distribution parameters (each of length 1).
+#'     Use the function \code{available_sojourn_dist()} to see the supported sojourn distributions and their parameters. Refer to the package vignette for examples.
+#'     If unspecified (default), the sojourn distributions are assumed to be uniform (non-parametric) over 10 time-steps.
+#' @param marg_em_probs (optional) a list. The marginal emission distributions.
+#'     The list has one element per variable.
+#'     The name of that element must be the name of the variable.
+#'     Variable names cannot contain the character '_'.
+#'     Each element of the list is itself a list of at least two elements.
+#'     The first one, named \code{type}, is used to specify the distribution family.
+#'     Type \code{available_marginal_emission_dist()} to get the currently supported distribution families.
+#'     The second element of the list, \code{params}, is a list that provides the parameters of the model in each state.
+#'     The same function (\code{available_marginal_emission_dist()}) provides information on how these parameters must be specified.
+#'     An optional third element can be added to the variable list: \code{viz-options}.
+#'     This element is a list in which each element specifies a given visualization option.
+#'     Type \code{marginal_emission_viz_options()} to obtain the list and description of the available visualization options for each distribution type.
+#'     See function \code{plot_hsmm_seq()} for visualization of observation sequences.
+#'     If unspecified (default), it is assumed that the model describes time-series of a single continuous variable normally distributed around \code{j} (the state index) with a unitary standard deviation.
+#' @param censoring_probs (optional) the probabilities of observations being censored in each state.
+#'     Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)
+#' @param state_names (optional) a vector of characters. Names associated to each state.
+#'     Must be of length \code{J}. If unspecified, the states are numbered from 1 to \code{J}.
+#' @param state_colors (optional) a vector of color-specifying characters. Colors associated to each state.
+#'     Must be of length \code{J}. If unspecified, the colors are picked from the \code{viridis} palette.
 #' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
 #'
 #' @keywords HSMM
@@ -77,9 +97,9 @@
 #'
 specify_hsmm = function(J,
                         state_names = NULL, state_colors = NULL,
-                        init, transition,
-                        sojourn,
-                        marg_em_probs,
+                        init = NULL, transition = NULL,
+                        sojourn = NULL,
+                        marg_em_probs = NULL,
                         censoring_probs = NULL,
                         verbose = FALSE){
 
@@ -1035,8 +1055,8 @@ fit_hsmm = function(model, X,
     ksmooth.thresh = 1e-20 #this is a threshold for which d(u) values to use - if we throw too many weights in the default density() seems to work quite poorly
     u = which(d>ksmooth.thresh)
     if(length(u)>1){
-      d = density(u, weights = d[u], from = 1, n = M) %>%
-        approx(.,xout=1:M) %>% pluck("y") %>% tidyr::replace_na(0)
+      d = density(u, weights = d[u], bw = this_model_sojourn$bw, from = 1, n = M) %>%
+        approx(.,xout=1:M) %>% purrr::pluck("y") %>% tidyr::replace_na(0)
       d = d/sum(d)
     }
     this_model_sojourn$d = d

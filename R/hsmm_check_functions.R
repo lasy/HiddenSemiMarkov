@@ -8,6 +8,10 @@
 }
 
 .check_init = function(init, J){
+  if(is.null(init)){
+    warning("Initial probabilities not specified. Assuming uniform distribution across states.\n")
+    init = rep(1, J)/J
+    }
   if(length(init) != J) stop("Initial probability vector `init` must have J elements.\n")
   if(round(sum(init),10) != 1) warning("Initial probabilities did not sum to one. Values are normalized such that the initial probabilities sum to 1.\n")
   init = init/sum(init)
@@ -15,9 +19,14 @@
 }
 
 .check_transitions = function(transition, J){
+  if(is.null(transition)){
+    warning("Transition probabilities not specified. Assuming uniform transition probabilities without any absorbing state.\n")
+    transition = (matrix(1, J, J) - diag(1, J, J))/(J-1)
+  }
   if(NROW(transition) != J)  stop("transition matrix `transition` must have J rows.\n")
   if(NCOL(transition) != J)  stop("transition matrix `transition` must have J columns.\n")
-  if(any(round(rowSums(transition),10) != 1)) warning("Transition matrix rows do not sum to 1. Values will be normalized such that the transition probabilities from any state sum to 1.")
+  if(any(round(rowSums(transition),10) != 1))
+    warning("Transition matrix rows do not sum to 1. Values will be normalized such that the transition probabilities from any state sum to 1.")
   if(any(diag(transition) != 0)){
     #any absorbing states?
     j = which(diag(transition) != 0) # j are the states that have self-transitions
@@ -34,6 +43,14 @@
 
 
 .check_sojourn = function(sojourn, J, state_names){
+
+  if(is.null(sojourn)){
+    sojourn = list(type = "nonparametric",
+                   d = matrix(1/10, 10, J))
+    warning("Sojourn distributions unspecified.
+        Assuming uniform distribution ('nonparametric') over 10 time-steps. \n")
+  }
+
 
   # sojourn distributions can be specified in 2 different ways:
   # 1. one sojourn type for all states
@@ -54,7 +71,7 @@
         s = list()
         s$type = sojourn$type
         for(k in 2:length(sojourn))
-          if(sojourn$type %in% c("nonparametric","ksmoothed_nonparametric"))
+          if((sojourn$type %in% c("nonparametric","ksmoothed_nonparametric")) & (names(sojourn)[k] == "d"))
             s[[k]] = sojourn[[k]][,j]
           else s[[k]] = sojourn[[k]][j]
         names(s) = names(sojourn)
@@ -86,7 +103,11 @@
     )) stop("Sojourn distributions are not specified as they should.
             Type ?specify_hsmm for examples and details.\n")
 
-  if((length(params$optional_params)!=0) & is.null(sojourn$shift)) sojourn$shift = rep(1, J)
+
+  if(length(params$optional_params)!=0){
+    if(("shift" %in% params$optional_params) & is.null(sojourn$shift)) sojourn$shift = rep(1, J)
+    if(("bw" %in% params$optional_params) & is.null(sojourn$bw)) sojourn$bw = rep("nrd0", J)
+  }
 
   # then we check the dimensions and/or specifications
   if(sojourn$type %in% c("nonparametric","ksmoothed_nonparametric")){
@@ -98,6 +119,8 @@
       warning("The provided sojourn distributions do not sum to 1 for at least one state. Sojourn distributions are normalized so that they sum to 1.")
       sojourn$d = t(t(sojourn$d)/colSums(sojourn$d))
     }
+    if((sojourn$type == "ksmoothed_nonparametric") & (length(sojourn$bw) != J))
+      if(length(sojourn$bw) == 1) sojourn$bw = rep(sojourn$bw, J) else stop("The 'bw' parameter of the non-parametric sojourn distribution must be NULL (default) or of length 1 or J.\n")
   }else{
     for(k in 2:length(sojourn)){
       if(any(is.na(sojourn[[k]])))
@@ -120,12 +143,14 @@
     dplyr::filter(distribution_type == sojourn_type) %>%
     dplyr::select(parameters) %>% unlist() %>%
     stringr::str_split(., pattern = ", ") %>% unlist()
-  optional_params = c()
   backup_required_params = c()
 
-  if("shift" %in% required_params){
-    required_params = required_params[-which(required_params == "shift")]
-    optional_params = c(optional_params, "shift")
+  if(any(c("shift","bw") %in% required_params)){
+    optional_params_index = which(required_params %in% c("shift","bw"))
+    optional_params = required_params[optional_params_index]
+    required_params = required_params[-optional_params_index]
+  }else{
+    optional_params = c()
   }
 
   if(any(stringr::str_detect(required_params,"or "))){
@@ -151,7 +176,10 @@
   )) stop("Sojourn distributions are not specified as they should.
             Type ?specify_hsmm for examples and details.\n")
 
-  if((length(params$optional_params)!=0) & is.null(sojourn_one_state$shift)) sojourn_one_state$shift = 1
+  if(length(params$optional_params)!=0){
+    if(("shift" %in% params$optional_params) & is.null(sojourn_one_state$shift)) sojourn_one_state$shift = 1
+    if(("bw" %in% params$optional_params) & is.null(sojourn_one_state$bw)) sojourn_one_state$bw = "nrd0"
+  }
 
   # then we check the dimensions and/or specifications
   if(sojourn_one_state$type %in% c("nonparametric","ksmoothed_nonparametric")){
@@ -160,6 +188,10 @@
     if(round(sum(sojourn_one_state$d),10) != 1){
       warning("The provided sojourn distributions do not sum to 1 for at least one state. Sojourn distributions are normalized so that they sum to 1.")
       sojourn_one_state$d = sojourn_one_state$d/sum(sojourn_one_state$d)
+    }
+    if((sojourn_one_state$type == "ksmoothed_nonparametric") & (length(sojourn_one_state$bw) != 1)){
+      warning(paste0("Sojourn parameter 'bw' is longer than one. Taking the first value only.\n"))
+      sojourn_one_state$bw  = sojourn_one_state$bw[1]
     }
   }else{
     for(k in 2:length(sojourn_one_state)){
@@ -191,11 +223,22 @@
 
 
 .check_marg_em_probs = function(marg_em_probs, J){
-  if(is.null(marg_em_probs) | (length(marg_em_probs) == 0)) stop("Emission probabilities (marg_em_probs) are not specified.
-                                        They should be specified as a list with one element per observed variable.
-                                        Each element of this list should specify the name of that variable, its distribution family (e.g. 'norm', 'binom', 'non-par')
-                                        and its parameters/distribution for each state.
-                                        Type ?specify_hsmm for examples.")
+  if(is.null(marg_em_probs)){
+    marg_em_probs = list(
+      obs = list(
+        type = "norm",
+        params = list(mean = 1:J, sd = rep(1, J))
+      )
+    )
+    warning("Marginal emission probabilities unspecified. Assuming a model for a single variable normally distributed around 'j' (the state index) and with a unitary standard deviation.\n")
+  }
+
+  if(length(marg_em_probs) == 0)
+    stop("Emission probabilities (marg_em_probs) are not specified.
+    They should be specified as a list with one element per observed variable.
+    Each element of this list should specify the name of that variable, its distribution family (e.g. 'norm', 'binom', 'non-par')
+    and its parameters/distribution for each state.
+         Type ?specify_hsmm for examples.")
   if(is.null(names(marg_em_probs))) names(marg_em_probs) = 1:length(marg_em_probs)
 
   for(var in names(marg_em_probs)){
@@ -227,6 +270,15 @@
                     "marg_em_probs$",var,"$params = list(",
                     "\nsize = ...vector of J size...,",
                     "\nprob = ...vector of J prob...,"))
+
+      if(length(var_parem$params$size) != J)
+        if(length(var_parem$params$size) == 1) var_parem$params$size = rep(var_parem$params$size, J)
+        else stop(paste0("Variable '",var,"' ('binom') 'size' parameter must be of length 1 or J.\n"))
+
+      if(length(var_parem$params$prob) != J)
+        stop(paste0("Variable '",var,"' ('binom') 'prob' parameter must be of length J.\n"))
+
+
 
       if(is.null(var_parem$viz_options)) marg_em_probs[[var]]$viz_options = list()
       if(is.null(var_parem$viz_options$color_max)) marg_em_probs[[var]]$viz_options$color_max = "indianred1"

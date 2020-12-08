@@ -119,10 +119,10 @@
   <span class='va'>J</span>,
   state_names <span class='op'>=</span> <span class='cn'>NULL</span>,
   state_colors <span class='op'>=</span> <span class='cn'>NULL</span>,
-  <span class='va'>init</span>,
-  <span class='va'>transition</span>,
-  <span class='va'>sojourn</span>,
-  <span class='va'>marg_em_probs</span>,
+  init <span class='op'>=</span> <span class='cn'>NULL</span>,
+  transition <span class='op'>=</span> <span class='cn'>NULL</span>,
+  sojourn <span class='op'>=</span> <span class='cn'>NULL</span>,
+  marg_em_probs <span class='op'>=</span> <span class='cn'>NULL</span>,
   censoring_probs <span class='op'>=</span> <span class='cn'>NULL</span>,
   verbose <span class='op'>=</span> <span class='cn'>FALSE</span>
 <span class='op'>)</span></pre>
@@ -136,44 +136,64 @@
     </tr>
     <tr>
       <th>state_names</th>
-      <td><p>(optional) a vector of characters. Names associated to each state. Must be of length <code>J</code>. If unspecified, the states are numbered from 1 to <code>J</code></p></td>
+      <td><p>(optional) a vector of characters. Names associated to each state.
+Must be of length <code>J</code>. If unspecified, the states are numbered from 1 to <code>J</code>.</p></td>
     </tr>
     <tr>
       <th>state_colors</th>
-      <td><p>(optional) a vector of color-specifying characters. Colors associated to each state. Must be of length <code>J</code>. If unspecified, the colors are picked from the <code>viridis</code> palette.</p></td>
+      <td><p>(optional) a vector of color-specifying characters. Colors associated to each state.
+Must be of length <code>J</code>. If unspecified, the colors are picked from the <code>viridis</code> palette.</p></td>
     </tr>
     <tr>
       <th>init</th>
-      <td><p>a vector of double. The initial probabilities associated with each states. Must be a vector of length <code>J</code>. If values do not sum to 1 a warning message is displayed and the vector is divided by its sum.</p></td>
+      <td><p>(optional) a vector of <code>J</code> double.
+The initial probabilities associated with each states.
+If values do not sum to 1 a warning message is displayed and the vector is divided by its sum.
+If unspecified (default), uniform initial probabilities are assumed.</p></td>
     </tr>
     <tr>
       <th>transition</th>
-      <td><p>a matrix of double. The transition probabilities.
-Must be a matrix of size <code>J x J</code> in which the element <code>(r, c)</code> provides the probability of transitioning from state <code>r</code> to state <code>c</code>.
-The diagonal elements must be equal to zero except for absorbing states. For absorbing states, all the other elements of that row must be zero. For other states, if there are non-zero diagonal elements, a warning message is displayed and the elements are set to zero.
-If the sum over the rows is different that one, a warning message is displayed and the rows are divided by their sum.</p></td>
+      <td><p>(optional) a <code>J x J</code> matrix of double. The matrix of transition probabilities in which the element <code>(r, c)</code> provides the probability of transitioning from state <code>r</code> to state <code>c</code>.
+The diagonal elements must be equal to zero except for absorbing states.
+For absorbing states, all the other elements of that row must be zero.
+For other states, if there are non-zero diagonal elements, a warning message is displayed and the elements are set to zero.
+If the sum over the rows is different that one, a warning message is displayed and the rows are divided by their sum.
+If unspecified (default), uniform transition probabilities are assumed between each state with no absorbing state.</p></td>
     </tr>
     <tr>
       <th>sojourn</th>
-      <td><p>a list. The sojourn distributions. The list must have at least two elements: a <code>type</code> element which specifies the type of sojourn distributions and the other elements are the distribution parameters.
-Use the function <code><a href='available_sojourn_dist.html'>available_sojourn_dist()</a></code> to see the supported sojourn distributions.</p></td>
+      <td><p>(optional) a list. The sojourn distributions.
+The sojourn distributions can be specified with the same distribution family for all states or each state can be specified independently.
+In the first case (same distribution family for all states),
+the list must have at least two elements:
+a <code>type</code> element which specifies the type of sojourn distributions and the other elements are the distribution parameters (each of length <code>J</code>).
+In the second case (different distribution families for each state),
+the list must have <code>J</code> elements.
+Each of these <code>J</code> element is a list in which the first element (<code>type</code>) specifies the distribution family and the remaining elements are the distribution parameters (each of length 1).
+Use the function <code><a href='available_sojourn_dist.html'>available_sojourn_dist()</a></code> to see the supported sojourn distributions and their parameters. Refer to the package vignette for examples.
+If unspecified (default), the sojourn distributions are assumed to be uniform (non-parametric) over 10 time-steps.</p></td>
     </tr>
     <tr>
       <th>marg_em_probs</th>
-      <td><p>a list. The marginal emission distributions. The list has one element per variable.
-The name of that element must be the name of the variable. Variable names cannot contain the character '_'.
+      <td><p>(optional) a list. The marginal emission distributions.
+The list has one element per variable.
+The name of that element must be the name of the variable.
+Variable names cannot contain the character '_'.
 Each element of the list is itself a list of at least two elements.
-The first one, named <code>type</code>, is used to specify the distribution family. Type <code><a href='available_marginal_emission_dist.html'>available_marginal_emission_dist()</a></code> to get the currently supported distribution families.
+The first one, named <code>type</code>, is used to specify the distribution family.
+Type <code><a href='available_marginal_emission_dist.html'>available_marginal_emission_dist()</a></code> to get the currently supported distribution families.
 The second element of the list, <code>params</code>, is a list that provides the parameters of the model in each state.
 The same function (<code><a href='available_marginal_emission_dist.html'>available_marginal_emission_dist()</a></code>) provides information on how these parameters must be specified.
 An optional third element can be added to the variable list: <code>viz-options</code>.
 This element is a list in which each element specifies a given visualization option.
 Type <code>marginal_emission_viz_options()</code> to obtain the list and description of the available visualization options for each distribution type.
-See function <code><a href='plot_hsmm_seq.html'>plot_hsmm_seq()</a></code> for visualization of observation sequences.</p></td>
+See function <code><a href='plot_hsmm_seq.html'>plot_hsmm_seq()</a></code> for visualization of observation sequences.
+If unspecified (default), it is assumed that the model describes time-series of a single continuous variable normally distributed around <code>j</code> (the state index) with a unitary standard deviation.</p></td>
     </tr>
     <tr>
       <th>censoring_probs</th>
-      <td><p>(optional) the probabilities of observations being censored in each state. Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)</p></td>
+      <td><p>(optional) the probabilities of observations being censored in each state.
+Can be specified as a vector of length J of values between 0 (never censored) and 1 (always censored) or a a single value in [0,1] if the censoring probability is assumed to be identical in each state. If unspecified, the observations are assumed to never be censored (value 0) overall (individual variables may still be censored via their individual 'missing_prob'.)</p></td>
     </tr>
     <tr>
       <th>verbose</th>

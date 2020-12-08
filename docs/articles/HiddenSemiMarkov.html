@@ -121,27 +121,43 @@
 <div id="example-1-a-simple-2-state-3-variable-model-with-no-missing-data-" class="section level2">
 <h2 class="hasAnchor">
 <a href="#example-1-a-simple-2-state-3-variable-model-with-no-missing-data-" class="anchor"></a>Example 1: a simple 2-state, 3-variable model with no missing data.</h2>
+<div id="loading-the-hiddensemimarkov-package-and-additional-libraries-" class="section level3">
+<h3 class="hasAnchor">
+<a href="#loading-the-hiddensemimarkov-package-and-additional-libraries-" class="anchor"></a>Loading the <code>HiddenSemiMarkov</code> package and additional libraries.</h3>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R">
+<span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va">HiddenSemiMarkov</span><span class="op">)</span> 
+
+<span class="co"># for data manipulation</span>
+<span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org">dplyr</a></span><span class="op">)</span>
+<span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="http://purrr.tidyverse.org">purrr</a></span><span class="op">)</span>
+<span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://magrittr.tidyverse.org">magrittr</a></span><span class="op">)</span>
+
+<span class="co"># for data visualization</span>
+<span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="http://ggplot2.tidyverse.org">ggplot2</a></span><span class="op">)</span>
+<span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://rpkgs.datanovia.com/ggpubr/">ggpubr</a></span><span class="op">)</span></code></pre></div>
+</div>
 <div id="model-specification" class="section level3">
 <h3 class="hasAnchor">
 <a href="#model-specification" class="anchor"></a>Model specification</h3>
 <p>The specification of a hidden semi-Markov model requires the number of state, the initial probabilities (i.e. the probability for each state to start a state sequence), the transition probabilities (i.e. the probabilities to switch from one state to another), the sojourn distributions for each state (parametric or non-parametric distributions) and the marginal emission probabilities (i.e. the distributions of values of each variables in each state). Note that, while we do not specify joint distributions for the different values, potential within-state dependencies between variables can be learned at the initialization step if labeled data is provided or when fitting the model to sequences.</p>
 <p>We will here use a simple 2-state 3-variable toy model to provide an example of a model specification. We temporarily use a list to store the model parameters before the actual use of the <code><a href="../reference/specify_hsmm.html">specify_hsmm()</a></code> function.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span class="va">m1_param_list</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span><span class="op">)</span></code></pre></div>
 <p><strong>States</strong></p>
 <p><code>J</code> is the number of states of the model. We define a model with two hidden states.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span class="va">m1_param_list</span><span class="op">$</span><span class="va">J</span> <span class="op">=</span> <span class="fl">2</span></code></pre></div>
 <p>(Optional) These states can be names, <em>e.g.</em> “A” and “B”, and be allocated specific colors.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span class="va">m1_param_list</span><span class="op">$</span><span class="va">state_names</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"A"</span>,<span class="st">"B"</span><span class="op">)</span>
 <span class="va">m1_param_list</span><span class="op">$</span><span class="va">state_colors</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"seagreen1"</span>,<span class="st">"slategray"</span><span class="op">)</span></code></pre></div>
 <p><strong>Initial and transition probabilities</strong></p>
 <p>Initial probabilities are defined as a vector of length <code>J</code>.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span class="va">m1_param_list</span><span class="op">$</span><span class="va">init</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.1</span><span class="op">)</span></code></pre></div>
 <p>Transition probabilities are defined as a (<code>J</code> x <code>J</code>) matrix where the rows are the <code>'from'</code> states and the columns are the <code>'to'</code> states. Rows must sum to 1 and the diagonal must be filled with zeros as the probabilities of staying in a given state is defined in the sojourn distributions.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span class="va">m1_param_list</span><span class="op">$</span><span class="va">trans</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">0</span>,<span class="fl">1</span>,<span class="fl">1</span>,<span class="fl">0</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="va">m1_param_list</span><span class="op">$</span><span class="va">J</span>, ncol <span class="op">=</span> <span class="va">m1_param_list</span><span class="op">$</span><span class="va">J</span><span class="op">)</span></code></pre></div>
 <p><strong>Sojourn distributions</strong></p>
 <p>Sojourn distributions can be defined as parametric or non-parametric distributions. Supported distributions are provided in the table below.</p>
@@ -156,6 +172,9 @@ distribution_type
 <th style="text-align:left;">
 parameters
 </th>
+<th style="text-align:left;">
+parameters_description
+</th>
 </tr></thead>
 <tbody>
 <tr>
@@ -165,13 +184,19 @@ nonparametric
 <td style="text-align:left;">
 d
 </td>
+<td style="text-align:left;">
+‘d’ is the non-parametric probability density
+</td>
 </tr>
 <tr>
 <td style="text-align:left;">
 ksmoothed_nonparametric
 </td>
 <td style="text-align:left;">
-d
+d, bw
+</td>
+<td style="text-align:left;">
+‘d’ is the non-parametric probability density, ‘bw’ is the smoothing bandwidth. If left empty, default ‘bw’ value of the ‘density’ function is users (see ‘?density’ for details).
 </td>
 </tr>
 <tr>
@@ -181,6 +206,9 @@ gamma
 <td style="text-align:left;">
 shape, scale
 </td>
+<td style="text-align:left;">
+‘shape’ and ‘scale’ are the gamma distribution parameters (rate = 1/scale)
+</td>
 </tr>
 <tr>
 <td style="text-align:left;">
@@ -188,6 +216,9 @@ poisson
 </td>
 <td style="text-align:left;">
 shift, lambda
+</td>
+<td style="text-align:left;">
+‘lambda’ is Poisson distribution parameter and ‘shift’ is an additional parameter allowing to shift the Poisson distribution.
 </td>
 </tr>
 <tr>
@@ -197,6 +228,9 @@ lnorm
 <td style="text-align:left;">
 meanlog, sdlog
 </td>
+<td style="text-align:left;">
+‘meanlog’ and ‘sdlog’ are the log-normal distribution parameters (see ?rlnorm for details)
+</td>
 </tr>
 <tr>
 <td style="text-align:left;">
@@ -204,6 +238,9 @@ logarithmic
 </td>
 <td style="text-align:left;">
 shape
+</td>
+<td style="text-align:left;">
+‘shape’ is the decay parameter of the logarithmic distribution
 </td>
 </tr>
 <tr>
@@ -213,13 +250,16 @@ nbinom
 <td style="text-align:left;">
 size, mu or prob, shift
 </td>
+<td style="text-align:left;">
+‘size’ and ‘mu’/‘prob’ are the negative binomial distribution parameters. ‘shift’ is an additional parameter allowing to shift the distribution.
+</td>
 </tr>
 </tbody>
 </table>
 <p>Sojourn distributions are specified by a list. This list can either have one element per state if states are described by different distribution type or with a more compact list if all states can be described by the same distribution family with different parameters for each state. Here we demonstrate the latter case but additional examples are found in the next sections.</p>
 <p>When specifying the sojourns with the same distribution family for all states, the list starts with a <code>'type'</code> element whose value is a string specifying the type of sojourn distributions. The other elements of the list specify the parameters of the distributions and their name depends on the distribution type chosen. If the sojourn is specified as a non-parametric distribution, the other element in the list is a matrix <code>d</code> of dimension (<code>M</code> x <code>J</code>) where <code>M</code> is the length of the longest sojourn.</p>
 <p>Here, we define the sojourn distributions of the toy model as <code>gamma</code> distributions.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="va">m1_param_list</span><span class="op">$</span><span class="va">sojourn</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"gamma"</span>,
                    shape <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">2</span>,<span class="fl">10</span><span class="op">)</span>, 
@@ -233,12 +273,6 @@ size, mu or prob, shift
 <p>Because we wanted the package to be able to decode time-series with variables of different types (continuous, discrete, binary and categorical), the emission probabilities are provided independently for each variable. This makes the assumption that the variables are independent within a given state. However, potential within-state dependencies may be learned when fitting the model to data.</p>
 <p>The marginal emission distributions <span class="math inline">\(\Pr(X_k|S_j)\)</span> can be described as parametric (continuous or discrete) or non-parametric (e.g. for categorical variables). Currently, the package supports normal (<code>norm</code>), beta (<code>beta</code>), binomial (<code>binom</code>) and non-parametric (<code>non-par</code>) distributions.</p>
 <p>To check the currently supported emission distribution and how to specify them, one can use the function <code><a href="../reference/available_marginal_emission_dist.html">available_marginal_emission_dist()</a></code>.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R">
-<span class="fu">kable</span><span class="op">(</span><span class="fu"><a href="../reference/available_marginal_emission_dist.html">available_marginal_emission_dist</a></span><span class="op">(</span><span class="op">)</span>,
-      booktab <span class="op">=</span> <span class="cn">TRUE</span>,
-      format <span class="op">=</span> <span class="st">"html"</span>,
-      caption <span class="op">=</span> <span class="st">"Available marginal emission distributions"</span><span class="op">)</span></code></pre></div>
 <table class="table">
 <caption>
 Available marginal emission distributions
@@ -444,16 +478,16 @@ NV x J
 <p><strong>Visualization of the specified model</strong></p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
-<span class="fu"><a href="../reference/plot_hsmm_transitions.html">plot_hsmm_transitions</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span>, size <span class="op">=</span> <span class="fl">10</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Transitions"</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="../reference/plot_hsmm_transitions.html">plot_hsmm_transitions</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span>, size <span class="op">=</span> <span class="fl">10</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Transitions"</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/m1-trans-viz-1.png" width="288"></p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
-<span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourn distributions"</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourn distributions"</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/m1-sojourn-viz-1.png" width="480"></p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span>, show_missing_probs <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Marginal emission distributions"</span><span class="op">)</span></code></pre></div>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Marginal emission distributions"</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/m1-em-dist-viz-1.png" width="480"></p>
 </div>
 <div id="sequence-simulation" class="section level3">
@@ -515,10 +549,10 @@ NV x J
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="fu"><a href="../reference/plot_hsmm_seq.html">plot_hsmm_seq</a></span><span class="op">(</span>
-  X <span class="op">=</span> <span class="va">X</span> <span class="op">%&gt;%</span> <span class="fu">left_join</span><span class="op">(</span><span class="va">.</span>, 
+  X <span class="op">=</span> <span class="va">X</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">.</span>, 
                       <span class="va">viterbi</span><span class="op">$</span><span class="va">state_seq</span> <span class="op">%&gt;%</span> 
-                        <span class="fu">select</span><span class="op">(</span><span class="va">seq_id</span>, <span class="va">t</span>, <span class="va">state</span><span class="op">)</span> <span class="op">%&gt;%</span> 
-                        <span class="fu">rename</span><span class="op">(</span>state_Viterbi <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
+                        <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="va">seq_id</span>, <span class="va">t</span>, <span class="va">state</span><span class="op">)</span> <span class="op">%&gt;%</span> 
+                        <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html">rename</a></span><span class="op">(</span>state_Viterbi <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
                       by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"seq_id"</span>,<span class="st">"t"</span><span class="op">)</span><span class="op">)</span>,
   model <span class="op">=</span> <span class="va">m1</span>,
   title <span class="op">=</span> <span class="st">"Hidden state sequence predicted with the Viterbi algorithm"</span>
@@ -527,10 +561,10 @@ NV x J
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="fu"><a href="../reference/plot_hsmm_seq.html">plot_hsmm_seq</a></span><span class="op">(</span>
-  X <span class="op">=</span> <span class="va">X</span> <span class="op">%&gt;%</span> <span class="fu">left_join</span><span class="op">(</span><span class="va">.</span>, 
+  X <span class="op">=</span> <span class="va">X</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">.</span>, 
                       <span class="va">fwbw</span><span class="op">$</span><span class="va">state_seq</span> <span class="op">%&gt;%</span> 
-                        <span class="fu">select</span><span class="op">(</span><span class="va">seq_id</span>, <span class="va">t</span>, <span class="va">state</span><span class="op">)</span> <span class="op">%&gt;%</span> 
-                        <span class="fu">rename</span><span class="op">(</span>state_FwBw <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
+                        <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="va">seq_id</span>, <span class="va">t</span>, <span class="va">state</span><span class="op">)</span> <span class="op">%&gt;%</span> 
+                        <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html">rename</a></span><span class="op">(</span>state_FwBw <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
                       by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"seq_id"</span>,<span class="st">"t"</span><span class="op">)</span><span class="op">)</span>,
   model <span class="op">=</span> <span class="va">m1</span>,
   title <span class="op">=</span> <span class="st">"Hidden state sequence predicted with the Forward-Backward algorithm"</span>
@@ -544,7 +578,7 @@ NV x J
 <p>To demonstrate this function, we modify the simulated sequence and fit the model to this modified sequence.</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
-<span class="va">Xmod</span> <span class="op">=</span> <span class="fu">bind_rows</span><span class="op">(</span><span class="va">X</span>, <span class="va">X</span><span class="op">)</span> <span class="co"># we repeat the sequence to have a longer sequence</span>
+<span class="va">Xmod</span> <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind.html">bind_rows</a></span><span class="op">(</span><span class="va">X</span>, <span class="va">X</span><span class="op">)</span> <span class="co"># we repeat the sequence to have a longer sequence</span>
 <span class="va">j</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/which.html">which</a></span><span class="op">(</span><span class="va">Xmod</span><span class="op">$</span><span class="va">state</span> <span class="op">==</span> <span class="fl">2</span><span class="op">)</span>, <span class="fl">100</span><span class="op">)</span> <span class="co"># we remove time-points from the state 2 to modify the sojourn distributions</span>
 <span class="va">Xmod</span> <span class="op">=</span> <span class="va">Xmod</span><span class="op">[</span><span class="op">-</span><span class="va">j</span>,<span class="op">]</span>
 <span class="va">Xmod</span><span class="op">$</span><span class="va">t</span> <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">Xmod</span><span class="op">)</span>
@@ -558,20 +592,20 @@ NV x J
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourn distribution of the specified model"</span><span class="op">)</span></code></pre></div>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourn distribution of the specified model"</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/m1-fit-comparison-1.png" width="576"></p>
 <div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">fit_results</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourn distribution of the fitted model"</span><span class="op">)</span></code></pre></div>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourn distribution of the fitted model"</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/m1-fit-comparison-2.png" width="576"></p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Marginal emission distribution of the specified model"</span><span class="op">)</span></code></pre></div>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Marginal emission distribution of the specified model"</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/m1-fit-comparison-3.png" width="576"></p>
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">fit_results</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Marginal emission distribution of the fitted model"</span><span class="op">)</span></code></pre></div>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Marginal emission distribution of the fitted model"</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/m1-fit-comparison-4.png" width="576"></p>
 </div>
 </div>
@@ -584,12 +618,20 @@ NV x J
 <code class="sourceCode R"><span class="fu"><a href="../reference/available_sojourn_dist.html">available_sojourn_dist</a></span><span class="op">(</span><span class="op">)</span>
 <span class="co">#&gt;         distribution_type              parameters</span>
 <span class="co">#&gt; 1           nonparametric                       d</span>
-<span class="co">#&gt; 2 ksmoothed_nonparametric                       d</span>
+<span class="co">#&gt; 2 ksmoothed_nonparametric                   d, bw</span>
 <span class="co">#&gt; 3                   gamma            shape, scale</span>
 <span class="co">#&gt; 4                 poisson           shift, lambda</span>
 <span class="co">#&gt; 5                   lnorm          meanlog, sdlog</span>
 <span class="co">#&gt; 6             logarithmic                   shape</span>
-<span class="co">#&gt; 7                  nbinom size, mu or prob, shift</span></code></pre></div>
+<span class="co">#&gt; 7                  nbinom size, mu or prob, shift</span>
+<span class="co">#&gt;                                                                                                                                                               parameters_description</span>
+<span class="co">#&gt; 1                                                                                                                                      'd' is the non-parametric probability density</span>
+<span class="co">#&gt; 2 'd' is the non-parametric probability density, 'bw' is the smoothing bandwidth. If left empty, default 'bw' value of the 'density' function is users (see '?density' for details).</span>
+<span class="co">#&gt; 3                                                                                                         'shape' and 'scale' are the gamma distribution parameters (rate = 1/scale)</span>
+<span class="co">#&gt; 4                                                      'lambda' is Poisson distribution parameter and 'shift' is an additional parameter allowing to shift the Poisson distribution.</span>
+<span class="co">#&gt; 5                                                                                         'meanlog' and 'sdlog' are the log-normal distribution parameters (see ?rlnorm for details)</span>
+<span class="co">#&gt; 6                                                                                                                     'shape' is the decay parameter of the logarithmic distribution</span>
+<span class="co">#&gt; 7                                   'size' and 'mu'/'prob' are the negative binomial distribution parameters. 'shift' is an additional parameter allowing to shift the distribution.</span></code></pre></div>
 <div id="parametric-vs-non-parametric-sojourns-" class="section level3">
 <h3 class="hasAnchor">
 <a href="#parametric-vs-non-parametric-sojourns-" class="anchor"></a>Parametric vs non-parametric sojourns.</h3>
@@ -647,11 +689,11 @@ NV x J
 <span class="co">#&gt; normalized so that they sum to 1.</span></code></pre></div>
 <div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
-<span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">ms1</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourns specified as Gamma distributions"</span><span class="op">)</span>
-<span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">ms2</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourns specified as non-parametric distributions"</span><span class="op">)</span>
-<span class="va">g3</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">ms3</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourns specified as k-smoothed non-parametric distributions"</span><span class="op">)</span>
+<span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">ms1</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourns specified as Gamma distributions"</span><span class="op">)</span>
+<span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">ms2</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourns specified as non-parametric distributions"</span><span class="op">)</span>
+<span class="va">g3</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">ms3</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourns specified as k-smoothed non-parametric distributions"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, <span class="va">g3</span>, nrow <span class="op">=</span> <span class="fl">3</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, <span class="va">g3</span>, nrow <span class="op">=</span> <span class="fl">3</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/ms1-2-3-sojourn-viz-1.png" width="672"></p>
 <p>When we simulate sequences with these three models with the same seed, we obtain virtually the same sequence of states and observations.</p>
 <div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
@@ -667,7 +709,7 @@ NV x J
 <span class="va">g3</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_seq.html">plot_hsmm_seq</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">X3</span>, model <span class="op">=</span> <span class="va">ms3</span>, compact_view <span class="op">=</span> <span class="cn">TRUE</span>,
                    title <span class="op">=</span> <span class="st">"Sojourns specified as k-smoothed non-parametric distributions"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, <span class="va">g3</span>, nrow <span class="op">=</span> <span class="fl">3</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, <span class="va">g3</span>, nrow <span class="op">=</span> <span class="fl">3</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/ms1-2-3-simulate-1.png" width="768"></p>
 <p>However, when we fit the model to these sequences, the updated (fitted) sojourn distributions are different because the sojourns of model <code>ms1</code> are constrained to be described by Gamma distributions, while the sojourns of models <code>ms2</code> and <code>ms3</code> are unconstrained. In model <code>ms3</code>, the distributions are kept smooth but are not constrained to follow any specific distribution.</p>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
@@ -677,15 +719,15 @@ NV x J
 <span class="va">ms3_fitted</span> <span class="op">=</span> <span class="fu"><a href="../reference/fit_hsmm.html">fit_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms3</span>, X <span class="op">=</span> <span class="va">X1</span><span class="op">)</span>
 
 <span class="va">g0</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms1</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Specified sojourn distributions"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Specified sojourn distributions"</span><span class="op">)</span>
 <span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms1_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as Gamma distributions"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as Gamma distributions"</span><span class="op">)</span>
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms2_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as non-parametric distributions"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as non-parametric distributions"</span><span class="op">)</span>
 <span class="va">g3</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms3_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as k-smoothed non-parametric distributions"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as k-smoothed non-parametric distributions"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, <span class="va">g3</span>, nrow <span class="op">=</span> <span class="fl">4</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, <span class="va">g3</span>, nrow <span class="op">=</span> <span class="fl">4</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/ms1-2-3-fit-1.png" width="672"></p>
 </div>
 <div id="using-bayesian-updating-when-re-estimating-the-sojourn-distributions" class="section level3">
@@ -699,28 +741,28 @@ NV x J
 <span class="va">ms3_fitted_prior</span> <span class="op">=</span> <span class="fu"><a href="../reference/fit_hsmm.html">fit_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms3</span>, X <span class="op">=</span> <span class="va">X1</span>, use_sojourn_prior <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>
 
 <span class="va">g1_no_prior</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span>  <span class="va">ms1_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Gamma sojourn distributions fitted without prior"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Gamma sojourn distributions fitted without prior"</span><span class="op">)</span>
 <span class="va">g1_prior</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms1_fitted_prior</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Gamma sojourn distributions fitted with prior"</span><span class="op">)</span>
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1_no_prior</span>, <span class="va">g1_prior</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Gamma sojourn distributions fitted with prior"</span><span class="op">)</span>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1_no_prior</span>, <span class="va">g1_prior</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/ms1-2-3-sojourn-prior-1.png" width="768"></p>
 <div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 
 <span class="va">g2_no_prior</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span>  <span class="va">ms2_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Non-parametric sojourn distributions fitted without prior"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Non-parametric sojourn distributions fitted without prior"</span><span class="op">)</span>
 <span class="va">g2_prior</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms2_fitted_prior</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Non-parametric sojourn distributions fitted with prior"</span><span class="op">)</span>
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g2_no_prior</span>, <span class="va">g2_prior</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Non-parametric sojourn distributions fitted with prior"</span><span class="op">)</span>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g2_no_prior</span>, <span class="va">g2_prior</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/ms1-2-3-sojourn-prior-2.png" width="768"></p>
 <div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 
 <span class="va">g3_no_prior</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span>  <span class="va">ms3_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"K-smoothed non-parametric sojourn distributions fitted without prior"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"K-smoothed non-parametric sojourn distributions fitted without prior"</span><span class="op">)</span>
 <span class="va">g3_prior</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">ms3_fitted_prior</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"K-smoothed non-parametric sojourn distributions fitted with prior"</span><span class="op">)</span>
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g3_no_prior</span>, <span class="va">g3_prior</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"K-smoothed non-parametric sojourn distributions fitted with prior"</span><span class="op">)</span>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g3_no_prior</span>, <span class="va">g3_prior</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/ms1-2-3-sojourn-prior-3.png" width="768"></p>
 </div>
 <div id="different-sojourn-distribution-families-for-each-state" class="section level3">
@@ -761,11 +803,11 @@ NV x J
   marg_em_probs <span class="op">=</span> <span class="va">msd2_param_list</span><span class="op">$</span><span class="va">marg_em_probs</span><span class="op">)</span></code></pre></div>
 <div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
-<span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">msd1</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourn distributions specified as Gamma distributions for both state."</span><span class="op">)</span>
+<span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">msd1</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourn distributions specified as Gamma distributions for both state."</span><span class="op">)</span>
 
-<span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">msd2</span><span class="op">)</span> <span class="op">+</span> <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourn distributions specified as Poisson (A) and Gamma (B)"</span><span class="op">)</span>
+<span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">msd2</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourn distributions specified as Poisson (A) and Gamma (B)"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/msd1-2-specified-sojourn-viz-1.png" width="768"></p>
 <p>Simulations from these two models lead to very similar sequences.</p>
 <div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
@@ -780,7 +822,7 @@ NV x J
                    compact_view <span class="op">=</span> <span class="cn">TRUE</span>,
                    title <span class="op">=</span> <span class="st">"Sojourn distributions specified as Poisson (A) and Gamma (B)"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/msd1-2-simulated-1.png" width="768"></p>
 <p>However, when fitting the model to the sequences, the fitted sojourns become different depending on how they have been specified.</p>
 <div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
@@ -789,13 +831,13 @@ NV x J
 <span class="va">msd2_fitted</span> <span class="op">=</span> <span class="fu"><a href="../reference/fit_hsmm.html">fit_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">msd2</span>, X <span class="op">=</span> <span class="va">X1</span><span class="op">)</span>
 
 <span class="va">g0</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">msd1</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Specified sojourn distributions"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Specified sojourn distributions"</span><span class="op">)</span>
 <span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">msd1_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as Gamma distributions for both states"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as Gamma distributions for both states"</span><span class="op">)</span>
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">msd2_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as Poisson (A) and Gamma (B) distributions"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Fitted sojourn distributions specified as Poisson (A) and Gamma (B) distributions"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/msd1-2-fit-1.png" width="672"></p>
 </div>
 </div>
@@ -851,7 +893,7 @@ NV x J
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_seq.html">plot_hsmm_seq</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">X2</span>, model <span class="op">=</span> <span class="va">mm2</span>, compact_view <span class="op">=</span> <span class="cn">TRUE</span>, 
                    title <span class="op">=</span> <span class="st">"Missing probabilities specified to 0"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/no-missing-simulate-1.png" width="768"></p>
 <p>The difference between these two models is that the probability of missing time-points was explicitly specified to 0 in <code>mm2</code>. Therefore, <code>mm2</code> is unable to decode time-series in which time-points are missing. On the other hand, since the missing probabilities were not specified in <code>mm1</code>, our package makes the assumption that each variable could be missing in any state.</p>
 <p>To illustrate this, we modify the simulated sequence to add missing time-points and use the <code>predict_states_hsmm</code> function to decode this sequence with each model.</p>
@@ -874,13 +916,13 @@ NV x J
 <span class="va">vit1_no_missing</span> <span class="op">=</span> <span class="fu"><a href="../reference/predict_states_hsmm.html">predict_states_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">mm1</span>, X <span class="op">=</span> <span class="va">X1</span>, method <span class="op">=</span> <span class="st">"Viterbi"</span><span class="op">)</span>
 
 <span class="fu"><a href="../reference/plot_hsmm_seq.html">plot_hsmm_seq</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">X1_with_missing</span> <span class="op">%&gt;%</span> 
-                <span class="fu">left_join</span><span class="op">(</span><span class="va">.</span>, 
+                <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">.</span>, 
                           <span class="va">vit1</span><span class="op">$</span><span class="va">state_seq</span> <span class="op">%&gt;%</span> 
-                            <span class="fu">rename</span><span class="op">(</span>state_Vitebi_with_missing_tp <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
+                            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html">rename</a></span><span class="op">(</span>state_Vitebi_with_missing_tp <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
                           by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"seq_id"</span>, <span class="st">"t"</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> 
-                <span class="fu">left_join</span><span class="op">(</span><span class="va">.</span>, 
+                <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">.</span>, 
                           <span class="va">vit1_no_missing</span><span class="op">$</span><span class="va">state_seq</span> <span class="op">%&gt;%</span> 
-                            <span class="fu">rename</span><span class="op">(</span>state_Vitebi_without_missing_tp <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
+                            <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html">rename</a></span><span class="op">(</span>state_Vitebi_without_missing_tp <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
                           by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"seq_id"</span>, <span class="st">"t"</span><span class="op">)</span><span class="op">)</span> ,
               model <span class="op">=</span> <span class="va">mm1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/no-missing-comparison-1.png" width="768"></p>
@@ -899,11 +941,11 @@ NV x J
 
 
 <span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">mm1</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Marginal emission probabilities of the specified model"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Marginal emission probabilities of the specified model"</span><span class="op">)</span>
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">mm1_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Marginal emission probabilities of the fitted model"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Marginal emission probabilities of the fitted model"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/no-missing-fit-1.png" width="672"></p>
 <p>In the bottom plot, the transparency of the histograms reflects a higher probability of the variables being missing in state 2 (B).</p>
 </div>
@@ -937,14 +979,14 @@ NV x J
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_seq.html">plot_hsmm_seq</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">X2</span>, model <span class="op">=</span> <span class="va">mp</span>, compact_view <span class="op">=</span> <span class="cn">TRUE</span>,
                    title <span class="op">=</span> <span class="st">"Missing time-point probabilities specified"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/missing-p-simulations-1.png" width="768"></p>
 <p>If one fits <code>mm1</code> on the sequence simulated with <code>mp</code>, the missing probabilities are learned.</p>
 <div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="va">mm1_fitted</span> <span class="op">=</span> <span class="fu"><a href="../reference/fit_hsmm.html">fit_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">mm1</span>, X <span class="op">=</span> <span class="va">X2</span><span class="op">)</span>
 
-<span class="va">mm1_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">obs_probs</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var3</span><span class="op">)</span><span class="op">)</span>
+<span class="va">mm1_fitted</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">obs_probs</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var3</span><span class="op">)</span><span class="op">)</span>
 <span class="co">#&gt; # A tibble: 2 x 6</span>
 <span class="co">#&gt;   state var1   var2 var3      p    p0</span>
 <span class="co">#&gt;   &lt;int&gt; &lt;fct&gt; &lt;int&gt; &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt;</span>
@@ -1022,12 +1064,12 @@ NV x J
 <span class="va">g3</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_seq.html">plot_hsmm_seq</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">X3</span>, model <span class="op">=</span> <span class="va">mq3</span>, compact_view <span class="op">=</span> <span class="cn">TRUE</span>,
                    title <span class="op">=</span> <span class="st">"Variable-specific missing probability specified"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>,<span class="va">g2</span>,<span class="va">g3</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>,<span class="va">g2</span>,<span class="va">g3</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/missing-q-simulate-1.png" width="768"> Each of these models can be fitted on the sequences simulated from the other models and missing probabilities are learned. See the two examples below.</p>
 <div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="va">mq2_fitted_to_X1</span> <span class="op">=</span> <span class="fu"><a href="../reference/fit_hsmm.html">fit_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">mq2</span>, X <span class="op">=</span> <span class="va">X1</span>, N0 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>
-<span class="va">mq2_fitted_to_X1</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">obs_probs</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var1</span><span class="op">)</span>,  <span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var3</span><span class="op">)</span><span class="op">)</span>
+<span class="va">mq2_fitted_to_X1</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">obs_probs</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var1</span><span class="op">)</span>,  <span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var3</span><span class="op">)</span><span class="op">)</span>
 <span class="co">#&gt; # A tibble: 6 x 6</span>
 <span class="co">#&gt;   state var1   var2 var3      p     p0</span>
 <span class="co">#&gt;   &lt;int&gt; &lt;fct&gt; &lt;int&gt; &lt;chr&gt; &lt;dbl&gt;  &lt;dbl&gt;</span>
@@ -1040,7 +1082,7 @@ NV x J
 
 
 <span class="va">mq2_fitted_to_X3</span> <span class="op">=</span> <span class="fu"><a href="../reference/fit_hsmm.html">fit_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">mq2</span>, X <span class="op">=</span> <span class="va">X3</span>, N0 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>
-<span class="va">mq2_fitted_to_X3</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">obs_probs</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var1</span><span class="op">)</span>,  <span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var3</span><span class="op">)</span><span class="op">)</span>
+<span class="va">mq2_fitted_to_X3</span><span class="op">$</span><span class="va">model</span><span class="op">$</span><span class="va">obs_probs</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var1</span><span class="op">)</span>,  <span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">var3</span><span class="op">)</span><span class="op">)</span>
 <span class="co">#&gt; # A tibble: 6 x 6</span>
 <span class="co">#&gt;   state var1   var2 var3      p     p0</span>
 <span class="co">#&gt;   &lt;int&gt; &lt;fct&gt; &lt;int&gt; &lt;chr&gt; &lt;dbl&gt;  &lt;dbl&gt;</span>
@@ -1072,10 +1114,10 @@ NV x J
 <span class="co"># we modify the sequences so that the model can learn the emission probabilities</span>
 <span class="co"># and we can evaluate the effect of the prior</span>
 <span class="va">small_X</span> <span class="op">=</span> <span class="va">small_X</span> <span class="op">%&gt;%</span> 
-  <span class="fu">mutate</span><span class="op">(</span>var1 <span class="op">=</span> <span class="va">var1</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span>
+  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span>var1 <span class="op">=</span> <span class="va">var1</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span>
 
 <span class="va">future_X</span> <span class="op">=</span> <span class="va">future_X</span> <span class="op">%&gt;%</span> 
-  <span class="fu">mutate</span><span class="op">(</span>var1 <span class="op">=</span> <span class="va">var1</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span>
+  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span>var1 <span class="op">=</span> <span class="va">var1</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span>
 
 <span class="co"># we fit the model to the sequence using different prior strength</span>
 <span class="va">m1_fitted_no_prior</span> <span class="op">=</span> <span class="fu"><a href="../reference/fit_hsmm.html">fit_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span>, X <span class="op">=</span> <span class="va">small_X</span>, N0 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>
@@ -1085,15 +1127,15 @@ NV x J
 <div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="va">g0</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Initial emission probabilities"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Initial emission probabilities"</span><span class="op">)</span>
 <span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1_fitted_no_prior</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Fitted emission probabilities (no prior)"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Fitted emission probabilities (no prior)"</span><span class="op">)</span>
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1_fitted_small_prior</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Fitted emission probabilities (small prior)"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Fitted emission probabilities (small prior)"</span><span class="op">)</span>
 <span class="va">g3</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">m1_fitted_equal_prior</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span> 
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Fitted emission probabilities (equal prior)"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Fitted emission probabilities (equal prior)"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, <span class="va">g3</span>,
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, <span class="va">g3</span>,
           ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/prior-on-emission-comparing-emission-probs-1.png" width="768"></p>
 <p>And we can attempt to decode a new time-series with these fitted models:</p>
@@ -1147,7 +1189,7 @@ NV x J
   <span class="op">}</span>
 <span class="op">)</span>
 
-<span class="va">X</span> <span class="op">=</span> <span class="va">ground_truth</span> <span class="op">%&gt;%</span> <span class="fu">select</span><span class="op">(</span><span class="op">-</span><span class="va">state</span><span class="op">)</span> <span class="co"># observed sequence</span>
+<span class="va">X</span> <span class="op">=</span> <span class="va">ground_truth</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="op">-</span><span class="va">state</span><span class="op">)</span> <span class="co"># observed sequence</span>
 <span class="fu"><a href="https://rdrr.io/r/base/Random.html">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>
 <span class="va">j</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">ground_truth</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fl">0.90</span><span class="op">*</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">ground_truth</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>
 <span class="va">masked_ground_truth</span> <span class="op">=</span> <span class="va">ground_truth</span>
@@ -1165,11 +1207,11 @@ NV x J
 <code class="sourceCode R">
 <span class="va">var1_mean_and_sd_from_partial_ground_truth</span> <span class="op">=</span> 
   <span class="va">masked_ground_truth</span> <span class="op">%&gt;%</span> 
-  <span class="fu">group_by</span><span class="op">(</span><span class="va">state</span><span class="op">)</span> <span class="op">%&gt;%</span> 
-  <span class="fu">summarize</span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">var1</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, 
+  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html">group_by</a></span><span class="op">(</span><span class="va">state</span><span class="op">)</span> <span class="op">%&gt;%</span> 
+  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html">summarize</a></span><span class="op">(</span>mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">var1</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, 
             sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">var1</span>, na.rm <span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span>, 
             .groups <span class="op">=</span> <span class="st">"drop"</span><span class="op">)</span> <span class="op">%&gt;%</span> 
-  <span class="fu"><a href="https://rdrr.io/r/stats/filter.html">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">state</span><span class="op">)</span><span class="op">)</span>
+  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">state</span><span class="op">)</span><span class="op">)</span>
 
 <span class="va">model_to_fit</span> <span class="op">=</span> <span class="fu"><a href="../reference/specify_hsmm.html">specify_hsmm</a></span><span class="op">(</span>
   J <span class="op">=</span> <span class="fl">3</span>,
@@ -1196,7 +1238,7 @@ NV x J
            rel_tol <span class="op">=</span> <span class="fl">1e-5</span>, n_iter <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>
 <span class="va">fitted_model_with_ground_truth</span> <span class="op">=</span> 
   <span class="fu"><a href="../reference/fit_hsmm.html">fit_hsmm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="va">model_to_fit</span>, X <span class="op">=</span> <span class="va">X</span>, 
-           ground_truth <span class="op">=</span> <span class="va">partial_ground_truth</span> <span class="op">%&gt;%</span> <span class="fu">select</span><span class="op">(</span><span class="op">-</span><span class="va">var1</span><span class="op">)</span>,
+           ground_truth <span class="op">=</span> <span class="va">partial_ground_truth</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="op">-</span><span class="va">var1</span><span class="op">)</span>,
            trust_in_ground_truth <span class="op">=</span> <span class="fl">1</span>,
            rel_tol <span class="op">=</span> <span class="fl">1e-5</span>, n_iter <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></code></pre></div>
 <p>We can now compare the two fitted models. First, we compare the likelihood and number of iterations of the EM algorithm needed to reach convergence. We can do this using the <code><a href="../reference/plot_hsmm_fit_status.html">plot_hsmm_fit_status()</a></code> function.</p>
@@ -1208,32 +1250,32 @@ NV x J
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_fit_status.html">plot_hsmm_fit_status</a></span><span class="op">(</span><span class="va">fitted_model_with_ground_truth</span>,
                      title <span class="op">=</span> <span class="st">"Convergence of model fitted with partial ground-truth"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/supervised-fit-status-1.png" width="576"></p>
 <p>The fit converges faster when partial ground-truth is provided.</p>
 <p>We can then compare the emission probabilities. We expect here both model to perform similarly given that the estimates from the partial ground-truth were already good estimates.</p>
 <div class="sourceCode" id="cb54"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="va">g0</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span><span class="va">unknown_generative_model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Emission probabilities of the generative model"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Emission probabilities of the generative model"</span><span class="op">)</span>
 <span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span><span class="va">fitted_model_without_ground_truth</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Emission probabilities of the fitted model (no ground truth)"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Emission probabilities of the fitted model (no ground truth)"</span><span class="op">)</span>
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_marg_dist.html">plot_hsmm_marg_dist</a></span><span class="op">(</span><span class="va">fitted_model_with_ground_truth</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Emission probabilities of the fitted model (partial ground truth)"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Emission probabilities of the fitted model (partial ground truth)"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/supervised-marg-dist-1.png" width="576"></p>
 <p>We now compare the sojourn distributions.</p>
 <div class="sourceCode" id="cb55"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
 <span class="va">g0</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">unknown_generative_model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourn distributions of the generative model"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourn distributions of the generative model"</span><span class="op">)</span>
 <span class="va">g1</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">fitted_model_without_ground_truth</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourn distributions of the fitted model (no ground truth)"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourn distributions of the fitted model (no ground truth)"</span><span class="op">)</span>
 <span class="va">g2</span> <span class="op">=</span> <span class="fu"><a href="../reference/plot_hsmm_sojourn_dist.html">plot_hsmm_sojourn_dist</a></span><span class="op">(</span><span class="va">fitted_model_with_ground_truth</span><span class="op">$</span><span class="va">model</span><span class="op">)</span> <span class="op">+</span>
-  <span class="fu">ggtitle</span><span class="op">(</span><span class="st">"Sojourn distributions of the fitted model (partial ground truth)"</span><span class="op">)</span>
+  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">ggtitle</a></span><span class="op">(</span><span class="st">"Sojourn distributions of the fitted model (partial ground truth)"</span><span class="op">)</span>
 
-<span class="fu">ggarrange</span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
+<span class="fu"><a href="https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html">ggarrange</a></span><span class="op">(</span><span class="va">g0</span>, <span class="va">g1</span>, <span class="va">g2</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></code></pre></div>
 <p><img src="HiddenSemiMarkov_files/figure-html/supervised-sojourn-1.png" width="672"> We then compare the transition probabilities matrices.</p>
 <div class="sourceCode" id="cb56"><pre class="downlit sourceCode r">
 <code class="sourceCode R">
@@ -1276,11 +1318,11 @@ NV x J
   method <span class="op">=</span> <span class="st">"Viterbi"</span><span class="op">)</span>
 
 <span class="va">RES</span> <span class="op">=</span> <span class="va">ground_truth</span> <span class="op">%&gt;%</span> 
-  <span class="fu">left_join</span><span class="op">(</span><span class="va">.</span>,
-            <span class="va">vit_without_GT</span><span class="op">$</span><span class="va">state_seq</span> <span class="op">%&gt;%</span> <span class="fu">rename</span><span class="op">(</span>state_vit_without_GT <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
+  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">.</span>,
+            <span class="va">vit_without_GT</span><span class="op">$</span><span class="va">state_seq</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html">rename</a></span><span class="op">(</span>state_vit_without_GT <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
             by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"seq_id"</span>,<span class="st">"t"</span><span class="op">)</span><span class="op">)</span> <span class="op">%&gt;%</span> 
-  <span class="fu">left_join</span><span class="op">(</span><span class="va">.</span>,
-            <span class="va">vit_with_GT</span><span class="op">$</span><span class="va">state_seq</span> <span class="op">%&gt;%</span> <span class="fu">rename</span><span class="op">(</span>state_vit_with_GT <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
+  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="va">.</span>,
+            <span class="va">vit_with_GT</span><span class="op">$</span><span class="va">state_seq</span> <span class="op">%&gt;%</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/rename.html">rename</a></span><span class="op">(</span>state_vit_with_GT <span class="op">=</span> <span class="va">state</span><span class="op">)</span>,
             by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"seq_id"</span>,<span class="st">"t"</span><span class="op">)</span><span class="op">)</span>
   </code></pre></div>
 <p>The accuracy of the hidden state prediction is slightly increased when partial ground-truth is provided (91 vs 90).</p>
