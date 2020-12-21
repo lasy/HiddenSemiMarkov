@@ -13,8 +13,8 @@ available_marginal_emission_dist = function(){
     data.frame(type = "continuous", distribution = "norm", params = "mean", parameter_type = "double", parameter_size = "J", stringsAsFactors = FALSE),
     data.frame(type = "continuous", distribution = "norm", params = "sd", parameter_type = "double", parameter_size = "J", stringsAsFactors = FALSE),
 
-    data.frame(type = "continuous", distribution = "beta", params = "shape1", parameter_type = "double >=0", parameter_size = "J", stringsAsFactors = FALSE),
-    data.frame(type = "continuous", distribution = "beta", params = "shape2", parameter_type = "double >=0", parameter_size = "J", stringsAsFactors = FALSE),
+    data.frame(type = "continuous", distribution = "beta", params = "shape1", parameter_type = "double >=1", parameter_size = "J", stringsAsFactors = FALSE),
+    data.frame(type = "continuous", distribution = "beta", params = "shape2", parameter_type = "double >=1", parameter_size = "J", stringsAsFactors = FALSE),
 
     data.frame(type = "discrete", distribution = "binom", params = "size", parameter_type = "int", parameter_size = "J", stringsAsFactors = FALSE),
     data.frame(type = "discrete", distribution = "binom", params = "prob", parameter_type = "double [0,1]", parameter_size = "J", stringsAsFactors = FALSE),
@@ -186,7 +186,7 @@ available_emission_viz_options = function(){
                               shape1 = model$marg_em_probs[[var_name]]$params$shape1[state],
                               shape2 = model$marg_em_probs[[var_name]]$params$shape2[state])) %>%
       dplyr::group_by(state, x) %>% dplyr::summarize(prob = sum(d), .groups = "drop") %>% # we sum the densities
-      dplyr::group_by(state) %>% dplyr::mutate(tot = sum(prob), prob = prob/tot) %>% dplyr::select(-tot) # we normalize by state
+      dplyr::group_by(state) %>% dplyr::mutate(tot = sum(prob[!is.infinite(prob)]), prob = prob/tot) %>% dplyr::select(-tot) # we normalize by state
   }
   marg_prob %>% dplyr::select(state, x, prob)
 }

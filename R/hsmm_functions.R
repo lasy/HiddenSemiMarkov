@@ -622,7 +622,14 @@ predict_states_hsmm = function(model, X,
   # OBSERVATION PROBABILITIES
   augmented_model$b = .compute_obs_probs(model = model, X = X)
   if(verbose) cat("joint emission probabilities computed\n")
-  if(any(rowSums(augmented_model$b) == 0)) stop("The joint emission probabilities of some observations have a value of zero for all states (which means that some observations are impossible given the specified model). Please check your model specification and make sure that the observations at all time-point have a non-zero probability in at least one state.")
+  if(any(rowSums(augmented_model$b) == 0)){
+    j = which(rowSums(augmented_model$b) == 0)
+    problematic_time_points = X[j,] %>% select(seq_id, t)
+    cat("Some observation have a zero joint emission probability for all states.\nIn particular, these observations are impossible given the specified model:\n")
+    print(problematic_time_points)
+    stop("Please check your model specification and make sure that the observations at all time-point have a non-zero probability in at least one state.")
+
+  }
   if(any(rowSums(augmented_model$b) < 1e-8)) warning("Some observations are highly unlikely in all states. This may mean that the specified model is not able to capture all of the provided observations.")
   augmented_model$b = augmented_model$b / rowSums(augmented_model$b )
 

@@ -3,6 +3,7 @@
 ######### MODEL SPECIFICATION CHECKS #############
 
 .check_J = function(J){
+  if(is.null(J)) stop("J (the number of states) must be specified.\n")
   if((round(J) != J) | (J <= 0)) stop("J must be an integer, strictly positive.\n")
   J
 }
@@ -300,6 +301,8 @@
                     "\nshape2 = ...vector of size J...)\n see ?dbeta for the interpretation of the parameters 'shape1' and 'shape2'."))
 
       if(is.null(marg_em_probs[[var]]$breaks)) marg_em_probs[[var]]$breaks = seq(0,1, by = 0.1) + c(-1e-300, rep(0,10))
+      if(any(c(marg_em_probs[[var]]$params$shape1,marg_em_probs[[var]]$params$shape1) < 1))
+        stop(paste0("Shape parameters lower than 1 for beta distributions are currently not supported (error identified for variable '",var,"' of type 'beta')"))
 
       if(is.null(var_parem$viz_options)) marg_em_probs[[var]]$viz_options = list()
       if(is.null(var_parem$viz_options$color_low)) marg_em_probs[[var]]$viz_options$color_low = "steelblue2"

@@ -3,7 +3,8 @@ Type: Package
 Title: Inference for hidden semi-Markov models
 Version: 0.1.0
 Authors@R: c(
-    person("Laura", "Symul", email = "lsymul@stanford.edu",role = c("aut", "cre"))
+    person("Laura", "Symul", email = "lsymul@stanford.edu",role = c("aut", "cre")),
+    person("Susan", "Holmes", email = "susan@stat.stanford.edu",role = c("ctb"))
     )
 Maintainer: Laura Symul <lsymul@stanford.edu>
 Description: This package predicts the sequence of hidden states for multi-variate time-series and estimates parameters of semi-Markov models from the observed time-series. 
