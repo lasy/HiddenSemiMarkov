@@ -388,11 +388,11 @@ plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE
     dplyr::mutate(var_value_fct = paste0(var_name,'_',var_value),
                   var_value_fct = var_value_fct %>%
                     factor(., levels = unique(var_value_fct)),
-                  state_name = state_names[state])
+                  state_name = state_names[state] %>% factor(., levels = state_names))
 
   x_scale = df %>%
-    select(var_value, var_value_fct) %>%
-    distinct()
+    dplyr::select(var_value, var_value_fct) %>%
+    dplyr::distinct()
 
   if(!show_missing_probs)
     df$missing_prob = 0
@@ -405,11 +405,12 @@ plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE
     scale_fill_manual(values = state_cols, guide = "none") +
     scale_alpha("probability of being observed", range = c(0,1), limits = c(0,1),
                 guide = ifelse(show_missing_probs,"legend","none")) +
-    facet_grid(state ~ var_name, scales = "free", space = "free") +
+    facet_grid(state_name ~ var_name, scales = "free", space = "free") +
     theme_set(theme_minimal()) +
     theme(legend.position = "bottom",
           axis.text.x = element_text(angle = 90, hjust = 1),
-          strip.background = element_rect(color = NA, fill = "gray90"))
+          strip.background = element_rect(color = NA, fill = "gray90"),
+          strip.text.y = element_text(angle = 0,hjust = 0))
   g
 }
 
