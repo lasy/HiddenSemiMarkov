@@ -118,7 +118,7 @@ plot_hsmm_seq = function(X, model,
     if(!is.character(title)) stop("title must be of type character \n")
     g_title = ggplot() + ggtitle(title)
     plotlist[["title"]] = g_title
-    rel_heights = c(rel_heights, ifelse(compact_view,0.5,1))
+    rel_heights = c(rel_heights, 1)
   }
 
   # states
@@ -293,7 +293,7 @@ plot_hsmm_seq = function(X, model,
 
 
   plotlist$axis = g_axis
-  rel_heights = c(rel_heights, ifelse(compact_view,0.5,1))
+  rel_heights = c(rel_heights, 1)
 
   g = cowplot::plot_grid(plotlist = plotlist, align = "v", axis = "lrtb", ncol = 1, rel_heights = rel_heights)
   if(add_state_color_legend & (!(compact_view & add_color_legend_in_compact_view)))
