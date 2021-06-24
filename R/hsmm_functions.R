@@ -135,7 +135,6 @@ specify_hsmm = function(J,
     tidyr::pivot_wider(names_from = state, values_from = p, names_prefix = "p_")
 
   if(!model$censoring_probs$missing_prob_specified){
-    if(verbose) cat("khdiwhdo \n")
     j = apply(model$obs_probs, 1, function(x) any(is.na(x))) %>% which()
     model$obs_probs$p[j] = 0
     model$obs_probs = model$obs_probs %>%
@@ -878,9 +877,12 @@ fit_hsmm = function(model, X,
                        dplyr::mutate(state = as.integer(state)),
                      by = c("seq_id","t"))
 
+
+  grouping_var = c("state", var_names)
   observed_obs_probs = Xb_with_w %>%
-    dplyr::group_by(.dots = c("state", var_names)) %>%
+    dplyr::group_by(across({{grouping_var}})) %>%
     dplyr::summarize(counts = sum(p), .groups = "drop")
+
 
   observed_N = observed_obs_probs %>%
     dplyr::select(state, counts) %>%
@@ -1048,13 +1050,12 @@ fit_hsmm = function(model, X,
   this_model_sojourn = model$sojourn[[j]]
   sojourn_distribution = this_model_sojourn$type
   d = d[,j]
+  if(any(is.na(d))) d = this_model_sojourn$d
 
   M = length(d)
 
   if(sojourn_distribution == "nonparametric"){
-
     this_model_sojourn$d = d
-
   }else
     if(sojourn_distribution == "ksmoothed_nonparametric"){
 
@@ -1098,9 +1099,13 @@ fit_hsmm = function(model, X,
 
   }else
     if(sojourn_distribution == "lnorm"){
-      this_model_sojourn$meanlog[i] = weighted.mean(log(1:M),d)
-      this_model_sojourn$sdlog[i] = sqrt(cov.wt(data.frame(log(1:M)),d)$cov)
-  }else{
+      this_model_sojourn$meanlog = weighted.mean(log(1:M),d)
+      this_model_sojourn$sdlog = sqrt(cov.wt(data.frame(log(1:M)),d)$cov)
+  }else
+    if(sojourn_distribution == "geometric"){
+      X = rep(0:(M-1), times = round(d*100000))
+      this_model_sojourn$prob = length(X)/(sum(X)+length(X))
+    }else{
     stop("Invalid sojourn distribution")
   }
 
@@ -1124,8 +1129,9 @@ fit_hsmm = function(model, X,
                        dplyr::mutate(state = as.integer(state)),
                      by = c("seq_id","t"))
 
+  grouping_var = c("state", var_names)
   observed_censored_obs_probs = Xb_with_w %>%
-    dplyr::group_by(.dots = c("state", var_names)) %>%
+    dplyr::group_by(across({{grouping_var}})) %>%
     dplyr::summarize(counts = sum(p), .groups = "drop")
 
   observed_N = observed_censored_obs_probs %>%

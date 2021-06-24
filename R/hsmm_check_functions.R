@@ -12,7 +12,7 @@
   if(is.null(init)){
     warning("Initial probabilities not specified. Assuming uniform distribution across states.\n")
     init = rep(1, J)/J
-    }
+  }
   if(length(init) != J) stop("Initial probability vector `init` must have J elements.\n")
   if(round(sum(init),10) != 1) warning("Initial probabilities did not sum to one. Values are normalized such that the initial probabilities sum to 1.\n")
   init = init/sum(init)
@@ -60,10 +60,11 @@
   if(is.null(sojourn$type) & (length(sojourn) != J)) stop("Sojourn distribution type not specified.")
 
   if("type"  %in% names(sojourn)){
-    supported_sojourns = available_sojourn_dist()$distribution_type
+    supported_sojourns = unique(available_sojourn$distribution_type)
     if(!(sojourn$type %in% supported_sojourns)) stop(paste("Invalid sojourn type specified (",sojourn$type,"). Must be one of: ", paste(supported_sojourns, collapse = ", ")))
 
     sojourn = .check_sojourn_all_states(sojourn, J)
+
 
     #sojourn$type = rep(sojourn$type, J)
     sojourn_per_state = purrr::map(
@@ -74,7 +75,7 @@
         for(k in 2:length(sojourn))
           if((sojourn$type %in% c("nonparametric","ksmoothed_nonparametric")) & (names(sojourn)[k] == "d"))
             s[[k]] = sojourn[[k]][,j]
-          else s[[k]] = sojourn[[k]][j]
+        else s[[k]] = sojourn[[k]][j]
         names(s) = names(sojourn)
         s
       }
@@ -101,7 +102,7 @@
   if(!(
     all(params$required_params %in% names(sojourn))|
     all(params$backup_required_params %in% names(sojourn))
-    )) stop("Sojourn distributions are not specified as they should.
+  )) stop("Sojourn distributions are not specified as they should.
             Type ?specify_hsmm for examples and details.\n")
 
 
@@ -129,7 +130,7 @@
       if(length(sojourn[[k]]) == 1){
         warning(paste0("Sojourn parameter '",names(sojourn)[k],"' is of length 1. Assuming the same value for all states.\n"))
         sojourn[[k]] = rep(sojourn[[k]], J)
-        }
+      }
       if(length(sojourn[[k]]) != J)
         stop(paste0("Sojourn parameter '",names(sojourn)[k],"' does not have as many element as there are states in the model.\n"))
     }
@@ -140,30 +141,11 @@
 
 .get_required_params = function(sojourn_type){
 
-  required_params = available_sojourn_dist() %>%
-    dplyr::filter(distribution_type == sojourn_type) %>%
-    dplyr::select(parameters) %>% unlist() %>%
-    stringr::str_split(., pattern = ", ") %>% unlist()
-  backup_required_params = c()
-
-  if(any(c("shift","bw") %in% required_params)){
-    optional_params_index = which(required_params %in% c("shift","bw"))
-    optional_params = required_params[optional_params_index]
-    required_params = required_params[-optional_params_index]
-  }else{
-    optional_params = c()
-  }
-
-  if(any(stringr::str_detect(required_params,"or "))){
-    backup_required_params = required_params
-    j = which(stringr::str_detect(required_params,"or "))
-    param_options = stringr::str_split(required_params[j], " or ") %>% unlist()
-    required_params[j] = param_options[1]
-    backup_required_params[j] = param_options[2]
-  }
+  j = (available_sojourn$distribution_type == sojourn_type)
+  required_params = available_sojourn$parameters[which(j & available_sojourn$required_parameter)]
+  optional_params = available_sojourn$parameters[which(j & !available_sojourn$required_parameter)]
 
   list(required_params = required_params,
-       backup_required_params = backup_required_params,
        optional_params = optional_params)
 }
 
@@ -181,6 +163,7 @@
     if(("shift" %in% params$optional_params) & is.null(sojourn_one_state$shift)) sojourn_one_state$shift = 1
     if(("bw" %in% params$optional_params) & is.null(sojourn_one_state$bw)) sojourn_one_state$bw = "nrd0"
   }
+
 
   # then we check the dimensions and/or specifications
   if(sojourn_one_state$type %in% c("nonparametric","ksmoothed_nonparametric")){
@@ -204,6 +187,7 @@
         stop("NA values found in the sojourn distribution parameters.\n")
     }
   }
+
   sojourn_one_state
 }
 
@@ -276,13 +260,13 @@
         if(length(var_parem$params$size) == 1) var_parem$params$size = rep(var_parem$params$size, J)
         else stop(paste0("Variable '",var,"' ('binom') 'size' parameter must be of length 1 or J.\n"))
 
-      if(length(var_parem$params$prob) != J)
-        stop(paste0("Variable '",var,"' ('binom') 'prob' parameter must be of length J.\n"))
+        if(length(var_parem$params$prob) != J)
+          stop(paste0("Variable '",var,"' ('binom') 'prob' parameter must be of length J.\n"))
 
 
 
-      if(is.null(var_parem$viz_options)) marg_em_probs[[var]]$viz_options = list()
-      if(is.null(var_parem$viz_options$color_max)) marg_em_probs[[var]]$viz_options$color_max = "indianred1"
+        if(is.null(var_parem$viz_options)) marg_em_probs[[var]]$viz_options = list()
+        if(is.null(var_parem$viz_options$color_max)) marg_em_probs[[var]]$viz_options$color_max = "indianred1"
 
     }
     if(var_parem$type == "non-par"){
@@ -372,6 +356,7 @@
 
   if(class(model) != "hsmm") stop("model must be of class 'hsmm'.")
 
+
   model$J = .check_J(model$J)
   model$state_names = .check_state_names(model$state_names, model$J)
   model$state_colors = .check_state_colors(model$state_colors, model$J)
@@ -390,16 +375,14 @@
 .check_model_obs_probs = function(model){
   obs_probs = model$obs_probs
   if(any(is.na(obs_probs$p))) stop("NAs found in the emission probabilities (model$obs_probs$p).\n")
-  sum_per_state = obs_probs %>% dplyr::group_by(state) %>%
-    dplyr::summarise(sum_prob = sum(p), .groups = "drop") %>%
-    dplyr::select(sum_prob) %>% unlist()
+  sum_per_state = ave(obs_probs$p, obs_probs$state, FUN = sum) %>% unique()
   if(any(round(sum_per_state, 10) != 1)) stop("Emission probabilities (model$obs_probs$p) do not sum to 1 for all states.\n")
   obs_probs
 }
 
 .check_model_b = function(model){
   b = model$b
-  b_mat = b %>% dplyr::select(dplyr::all_of(paste0("p_",1:model$J)))
+  b_mat = b[,paste0("p_",1:model$J)]
   if(any(is.na(b_mat))) stop("NAs found in the emission probabilities (model$b).\n")
   sum_per_state = colSums(b_mat)
   if(any(round(sum_per_state, 10) != 1)) stop("Emission probabilities (model$obs_probs$p) do not sum to 1 for all states.\n")

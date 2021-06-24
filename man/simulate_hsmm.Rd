@@ -12,7 +12,8 @@ simulate_hsmm(
   seed = NULL,
   all_states = FALSE,
   min_tp_per_state = NULL,
-  mult_seq_allowed = TRUE
+  mult_seq_allowed = TRUE,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ By default, this option is \code{FALSE}. When \code{TRUE}, the sequence may be l
 \item{min_tp_per_state}{(optional) if \code{all_states == TRUE}, this option can be used to specify the minimum number of time-point in each state.}
 
 \item{mult_seq_allowed}{(optional) if \code{all_states == TRUE}, this option can be used to specify if representation of all states in the simulated sequence can be achieved by simulated several sequences or by simulating a single sequence.}
+
+\item{verbose}{(optional) whether to print additional info when running.}
 }
 \value{
 A \code{data.frame} with the following columns: \code{seq_id}, the identifier of the sequence, \code{t} the time-stamp, \code{state} the hidden state and one additional column for each specified variable.

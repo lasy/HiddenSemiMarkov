@@ -147,7 +147,8 @@ plot_hsmm_seq = function(X, model,
       # plot title
       if(stringr::str_length(state_label)>0) state_label = stringr::str_c("states (",state_label,")") else state_label = "states"
 
-      g_state = g_base +
+      g_state =
+        g_base +
         geom_tile(data = df,
                   aes(y = 1, fill = state_col, alpha = state_alpha),
                   na.rm = TRUE)+ #  width = 1, height = 1,
@@ -158,7 +159,8 @@ plot_hsmm_seq = function(X, model,
                             breaks = model$state_colors) +
         theme(legend.position = "right",
               legend.direction = "horizontal",
-              legend.title = element_blank())
+              legend.title = element_blank(),
+              legend.key.size = rep(unit(10,"pt"),2))
 
       if(compact_view) g_state = g_state + scale_y_continuous(breaks = 1, labels = state_label)
       if(!compact_view) g_state = g_state + scale_y_continuous(breaks = NULL) + ggtitle(state_label)
@@ -281,7 +283,8 @@ plot_hsmm_seq = function(X, model,
     if(compact_view) g_var = g_var +
       theme(legend.position = "right",
             legend.direction = "horizontal",
-            legend.title = element_blank())
+            legend.title = element_blank(),
+            legend.key.size = rep(unit(10,"pt"),2))
     if(!(compact_view & add_color_legend_in_compact_view)) g_var = g_var + guides(fill = "none")
 
 
@@ -354,10 +357,11 @@ plot_hsmm_marg_dist = function(model, show_missing_probs = TRUE, verbose = FALSE
   df = purrr::map_dfr(
     .x = X_names,
     .f = function(var){
+      grouping_vars = c("state",var)
       this_var_marg_dist =
         obs_probs %>%
         dplyr::select(state, dplyr::all_of(var), p) %>%
-        dplyr::group_by(.dots = c("state", dplyr::all_of(var))) %>%
+        dplyr::group_by(across({{grouping_vars}})) %>%
         dplyr::summarise(p = sum(p), .groups = "drop")
       this_var_marg_dist$var_name = var
       this_var_marg_dist$var_value = this_var_marg_dist[,var] %>% unlist()

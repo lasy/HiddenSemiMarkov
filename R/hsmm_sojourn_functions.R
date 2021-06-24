@@ -9,37 +9,16 @@
 #' available_sojourn_dist()
 
 available_sojourn_dist = function(){
-  available_sojourn = rbind(
-    data.frame(distribution_type = "nonparametric",
-               parameters = "d",
-               parameters_description = "'d' is the non-parametric probability density",
-               stringsAsFactors = FALSE),
-    data.frame(distribution_type = "ksmoothed_nonparametric",
-               parameters = "d, bw",
-               parameters_description = "'d' is the non-parametric probability density, 'bw' is the smoothing bandwidth. If left empty, default 'bw' value of the 'density' function is users (see '?density' for details).",
-               stringsAsFactors = FALSE),
-    data.frame(distribution_type = "gamma",
-               parameters = "shape, scale",
-               parameters_description = "'shape' and 'scale' are the gamma distribution parameters (rate = 1/scale)",
-               stringsAsFactors = FALSE),
-    data.frame(distribution_type = "poisson",
-               parameters = "shift, lambda",
-               parameters_description = "'lambda' is Poisson distribution parameter and 'shift' is an additional parameter allowing to shift the Poisson distribution.",
-               stringsAsFactors = FALSE),
-    data.frame(distribution_type = "lnorm",
-               parameters = "meanlog, sdlog",
-               parameters_description = "'meanlog' and 'sdlog' are the log-normal distribution parameters (see ?rlnorm for details)",
-               stringsAsFactors = FALSE),
-    data.frame(distribution_type = "logarithmic",
-               parameters = "shape",
-               parameters_description = "'shape' is the decay parameter of the logarithmic distribution",
-               stringsAsFactors = FALSE),
-    data.frame(distribution_type = "nbinom",
-               parameters = "size, mu or prob, shift",
-               parameters_description = "'size' and 'mu'/'prob' are the negative binomial distribution parameters. 'shift' is an additional parameter allowing to shift the distribution.",
-               stringsAsFactors = FALSE)
-  )
-  available_sojourn
+  cat("Currently supported sojourn distributions are: (distributions & parameters)\n")
+  for(distribution in unique(available_sojourn$distribution_type)){
+    cat("\n\t - '",distribution ,"':\n")
+    j = which(available_sojourn$distribution_type == distribution)
+    for(i in j){
+      cat("\t\t", available_sojourn$parameters[i],
+          ifelse(available_sojourn$required_parameter[i]," (required)"," (optional)"),
+          ": ",available_sojourn$parameters_description[i],"\n")
+    }
+  }
 }
 
 
@@ -81,6 +60,8 @@ available_sojourn_dist = function(){
   }else if(sojourn_distribution %in% c("nbinom")){
     if(is.null(state_sojourn$mu)) M = max(qnbinom(p = p, prob = state_sojourn$prob))
     if(is.null(state_sojourn$mu))  M = max(qnbinom(p = p, mu = state_sojourn$mu))
+  }else if(sojourn_distribution %in% c("geometric")){
+    M = max(qgeom(p = p, prob = state_sojourn$prob))
   }else{
     stop("This sojourn distribution is currently not supported.")
   }
@@ -125,6 +106,9 @@ available_sojourn_dist = function(){
         if(is.null(sojourn_this_state$prob))
           this_state_d = .dnbinom.hsmm.sojourn(1:M, size = sojourn_this_state$size, mu = sojourn_this_state$mu, shift = sojourn_this_state$shift)
       }
+
+      if(sojourn_this_state$type == "geometric")
+        this_state_d = dgeom((1:M)-1, sojourn_this_state$prob)
 
       if(sum(this_state_d) != 0) this_state_d = this_state_d/sum(this_state_d) else this_state_d = 0*this_state_d
       this_state_d = data.frame(this_state_d) %>% magrittr::set_colnames(j)
