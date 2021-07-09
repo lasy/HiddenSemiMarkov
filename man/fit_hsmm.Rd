@@ -12,8 +12,8 @@ fit_hsmm(
   lock_emission = FALSE,
   lock_transition = FALSE,
   lock_sojourn = FALSE,
-  N0 = 0,
-  use_sojourn_prior = FALSE,
+  N0_emission = 0,
+  N0_sojourn = 0,
   ground_truth = data.frame(),
   trust_in_ground_truth = 0.75,
   verbose = FALSE,
@@ -25,23 +25,41 @@ fit_hsmm(
 
 \item{X}{a \code{data.frame} of observations.}
 
-\item{n_iter}{(optional) an integer specifying the maximal number of iterations for the EM-procedure. Default value is 10.}
+\item{n_iter}{(optional) an integer specifying the maximal number of iterations for the EM-procedure.
+Default value is 10.}
 
-\item{rel_tol}{(optional) a positive double specifying the tolerance at which to stop the EM. If the difference in likelihood (normalized by the total sequences length) between two iterations of the EM is smaller than \code{rel_tol}, then the EM procedure is considered to have converged to a local maximum.}
+\item{rel_tol}{(optional) a positive double specifying the tolerance at which to stop the EM.
+If the difference in likelihood (normalized by the total sequences length)
+between two iterations of the EM is smaller than \code{rel_tol},
+then the EM procedure is considered to have converged to a local maximum.}
 
-\item{lock_emission}{(optional) a logical. Default is \code{FALSE}. Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.}
+\item{lock_emission}{(optional) a logical. Default is \code{FALSE}.
+Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.}
 
-\item{lock_transition}{(optional) a logical. Default is \code{FALSE}. Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.}
+\item{lock_transition}{(optional) a logical. Default is \code{FALSE}.
+Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.}
 
-\item{lock_sojourn}{(optional) a logical. Default is \code{FALSE}. Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.}
+\item{lock_sojourn}{(optional) a logical. Default is \code{FALSE}.
+Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.}
 
-\item{N0}{(optional) a positive number specifying the strength of the prior, i.e. the number of observations (or believed number of observations) which informed the specification of the emission distributions. This number will be used to weight the specified emission distribution against the total lenght of the sequences provided for the fit.}
+\item{N0_emission}{(optional) a positive number specifying the (believed) number of observations
+which informed the specification of the emission distributions.
+This number is used to weight the specified emission distribution
+against the total length of the sequences provided for the fit.
+This is especially useful when the model if fitted on a small sequences
+and may be used on different data. In that case, setting \code{N0_emission} to
+a positive value prevents unobserved set of data in the training set to become impossible.
+Default value is 0.}
 
-\item{use_sojourn_prior}{(optional) a logical. Default is \code{TRUE}. Specifies if the specified sojourn distributions should be used as a prior when updating the prior distributions at the M-step of the EM.}
+\item{N0_sojourn}{(optional) a positive number specifying the (believed) number of observations
+which informed the specification of the sojourn distributions. Default value is 0.}
 
-\item{ground_truth}{(optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known. Default is an empty \code{data.frame}, _i.e._ no ground truth.}
+\item{ground_truth}{(optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known.
+Default is an empty \code{data.frame}, _i.e._ no ground truth.}
 
-\item{trust_in_ground_truth}{(optional) a double between 0 and 1 specifying the trust in the ground truth. A value of 0 indicates no trust and is equivalent to not providing ground-truth. A value of 1 indicates full trust and the ground truth will not be modulated by the probability of the values of the observations.}
+\item{trust_in_ground_truth}{(optional) a double between 0 and 1 specifying the trust in the ground truth.
+A value of 0 indicates no trust and is equivalent to not providing ground-truth.
+A value of 1 indicates full trust and the ground truth will not be modulated by the estimated probability of each state (E-step).}
 
 \item{verbose}{a logical (default = \code{FALSE}). Should the function print additional information?}
 
@@ -51,8 +69,11 @@ fit_hsmm(
 A list. First element of the list (\code{$model}) is a \code{hsmm} object (the fitted model) and the second element (\code{$fit_param}) provides information about the EM-procedure. The second element can be visualized by calling the function \code{plot_hsmm_fit_param()}.
 }
 \description{
-This function relies on a EM procedure to fit the model parameters to maximize the likelihood of the decoded hidden state sequence.
-It returns a list whose first element is the fitted model (an object of class \code{hsmm}) and whose second elements provides information about the EM procedure (convergence, number of iteration, likelihood).
+This function relies on a EM procedure to fit the model parameters
+to maximize the likelihood of the decoded hidden state sequence.
+It returns a two-element list. The first element is the fitted model and
+the second elements provides information about the EM procedure
+(convergence, number of iteration, likelihood).
 }
 \examples{
 my_model = simple_model  # simple_model is a model attached to the HiddenSemiMarkov package for demos

@@ -61,25 +61,25 @@
 
   if("type"  %in% names(sojourn)){
     supported_sojourns = unique(available_sojourn$distribution_type)
-    if(!(sojourn$type %in% supported_sojourns)) stop(paste("Invalid sojourn type specified (",sojourn$type,"). Must be one of: ", paste(supported_sojourns, collapse = ", ")))
+    if (!(sojourn$type %in% supported_sojourns))
+      stop(paste("Invalid sojourn type specified (",sojourn$type,"). Must be one of: ", paste(supported_sojourns, collapse = ", ")))
 
     sojourn = .check_sojourn_all_states(sojourn, J)
 
-
-    #sojourn$type = rep(sojourn$type, J)
-    sojourn_per_state = purrr::map(
-      .x = 1:J,
-      .f = function(j){
-        s = list()
-        s$type = sojourn$type
-        for(k in 2:length(sojourn))
-          if((sojourn$type %in% c("nonparametric","ksmoothed_nonparametric")) & (names(sojourn)[k] == "d"))
-            s[[k]] = sojourn[[k]][,j]
-        else s[[k]] = sojourn[[k]][j]
-        names(s) = names(sojourn)
-        s
-      }
-    )
+    sojourn_per_state =
+      purrr::map(
+        .x = 1:J,
+        .f = function(j){
+          s = list()
+          s$type = sojourn$type
+          for(k in 2:length(sojourn))
+            if((sojourn$type %in% c("nonparametric","ksmoothed_nonparametric")) & (names(sojourn)[k] == "d"))
+              s[[k]] = sojourn[[k]][,j]
+          else s[[k]] = sojourn[[k]][j]
+          names(s) = names(sojourn)
+          s
+        }
+      )
   }else{
     sojourn_per_state = purrr::map(
       .x = 1:J,

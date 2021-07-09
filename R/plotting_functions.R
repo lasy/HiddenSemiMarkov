@@ -97,7 +97,7 @@ plot_hsmm_seq = function(X, model,
   g_axis = g_axis +
     scale_x_continuous(limits = c(min(X$t)-1, max(X$t)+1), expand = expansion(add = 0)) +
     theme_set(theme_minimal()) + theme(panel.background = element_rect(color = "transparent", fill = "transparent"))+
-    guides(alpha = FALSE) # fill = FALSE,
+    guides(alpha = "none") # fill = FALSE,
 
   # g_base is based on g_axis but all elements of x axes are removed.
   g_base = g_axis +
@@ -165,8 +165,8 @@ plot_hsmm_seq = function(X, model,
       if(compact_view) g_state = g_state + scale_y_continuous(breaks = 1, labels = state_label)
       if(!compact_view) g_state = g_state + scale_y_continuous(breaks = NULL) + ggtitle(state_label)
 
-      if(!(compact_view & add_color_legend_in_compact_view)) g_state = g_state + guides(fill = FALSE)
-      if(i > j[1]) g_state = g_state + guides(fill = FALSE)
+      if(!(compact_view & add_color_legend_in_compact_view)) g_state = g_state + guides(fill = "none")
+      if(i > j[1]) g_state = g_state + guides(fill = "none")
 
       plotlist[[state_label]] = g_state
       rel_heights = c(rel_heights,ifelse(compact_view,1,2))
@@ -182,7 +182,7 @@ plot_hsmm_seq = function(X, model,
                     y = Y)
     if(compact_view) X_var = X_var %>% dplyr::mutate(y = 1)
 
-    g_var = g_base + guides(col = FALSE) # , fill = FALSE
+    g_var = g_base + guides(col = "none") # , fill = FALSE
 
     if(model$marg_em_probs[[var]]$type == "non-par"){
       X_var = X_var %>%
@@ -677,7 +677,7 @@ plot_hsmm_joint_em_prob = function(model, title = ""){
       g = ggplot(this_P, aes(x = x, y = y, fill = p)) +
         geom_tile()+
         scale_fill_gradient(low = "white", high = "purple")+
-        guides(fill = FALSE)+
+        guides(fill = "none")+
         facet_grid(state_name ~ .) +
         xlab(var_names[k])+ylab(var_names[l])+
         theme(strip.text.y = element_text(angle = 0, hjust = 0))

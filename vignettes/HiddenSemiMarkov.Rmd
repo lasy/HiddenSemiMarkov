@@ -506,39 +506,7 @@ ggarrange(g0, g1, g2, g3, nrow = 4, ncol = 1)
 
 ```
 
-### Using Bayesian updating when re-estimating the sojourn distributions
 
-Depending on the confidence that one has on the specified sojourn distributions, it may be useful to use the specified distribution as prior on the sojourn distributions when fitting a model to a sequence of data. We show here the impact of using such a prior on the fitted sojourn distributions.
-
-
-```{r ms1-2-3-sojourn-prior, fig.width=8, fig.height=6}
-
-ms1_fitted_prior = fit_hsmm(model = ms1, X = X1, use_sojourn_prior = TRUE)
-ms2_fitted_prior = fit_hsmm(model = ms2, X = X1, use_sojourn_prior = TRUE)
-ms3_fitted_prior = fit_hsmm(model = ms3, X = X1, use_sojourn_prior = TRUE)
-
-g1_no_prior = plot_hsmm_sojourn_dist(model =  ms1_fitted$model) +
-  ggtitle("Gamma sojourn distributions fitted without prior")
-g1_prior = plot_hsmm_sojourn_dist(model = ms1_fitted_prior$model) +
-  ggtitle("Gamma sojourn distributions fitted with prior")
-ggarrange(g1_no_prior, g1_prior, ncol = 1)
-
-
-g2_no_prior = plot_hsmm_sojourn_dist(model =  ms2_fitted$model) +
-  ggtitle("Non-parametric sojourn distributions fitted without prior")
-g2_prior = plot_hsmm_sojourn_dist(model = ms2_fitted_prior$model) +
-  ggtitle("Non-parametric sojourn distributions fitted with prior")
-ggarrange(g2_no_prior, g2_prior, ncol = 1)
-
-
-g3_no_prior = plot_hsmm_sojourn_dist(model =  ms3_fitted$model) +
-  ggtitle("K-smoothed non-parametric sojourn distributions fitted without prior")
-g3_prior = plot_hsmm_sojourn_dist(model = ms3_fitted_prior$model) +
-  ggtitle("K-smoothed non-parametric sojourn distributions fitted with prior")
-ggarrange(g3_no_prior, g3_prior, ncol = 1)
-
-
-```
 
 ### Different sojourn distribution families for each state
 
@@ -903,11 +871,11 @@ Each of these models can be fitted on the sequences simulated from the other mod
 
 ```{r missing-q-fit}
 
-mq2_fitted_to_X1 = fit_hsmm(model = mq2, X = X1, N0 = 0)
+mq2_fitted_to_X1 = fit_hsmm(model = mq2, X = X1, N0_emission = 0)
 mq2_fitted_to_X1$model$obs_probs %>% filter(is.na(var1),  is.na(var3))
 
 
-mq2_fitted_to_X3 = fit_hsmm(model = mq2, X = X3, N0 = 0)
+mq2_fitted_to_X3 = fit_hsmm(model = mq2, X = X3, N0_emission = 0)
 mq2_fitted_to_X3$model$obs_probs %>% filter(is.na(var1),  is.na(var3))
 
 ```
@@ -915,10 +883,10 @@ mq2_fitted_to_X3$model$obs_probs %>% filter(is.na(var1),  is.na(var3))
 
 If models can only be fitted on small multi-variate sequences, it may happen that these sequences do not have all possible combination of variables values and that some rare combinations may be learned to have a zero-probability. This would throw an error if this combination is later found in a new sequence that needs to be fitted or simply decoded.
 
-To prevent such event, one can use the option `N0` from the `fit_hsmm()` function.
+To prevent such event, one can use the option `N0_emission` from the `fit_hsmm()` function.
 This option takes as input an integer which specify the strength of the initial emission probabilities in terms of prior sample size. When emission probabilities are updated during the M-step, the observed emission probabilities are weighted with the prior emission probabilities (those of the model provided as input for the fit) with a weight ratio of `N/N0` where `N` is the number of observations in the provided sequence for the fit.
 
-For example, if the model is fitted on a sequence of length 500 and `N0` is set to 500, then the prior and observed probabilities have the same weight when emission probabilities are re-estimated. If `N0` were 1000, prior probabilities would weight twice as much.
+For example, if the model is fitted on a sequence of length 500 and `N0_emission` is set to 500, then the prior and observed probabilities have the same weight when emission probabilities are re-estimated. If `N0_emission` were 1000, prior probabilities would weight twice as much.
 
 We illustrate this with an example comparing three fits on a small sequence.
 
@@ -941,9 +909,9 @@ future_X = future_X %>%
   mutate(var1 = var1 - 0.5)
 
 # we fit the model to the sequence using different prior strength
-m1_fitted_no_prior = fit_hsmm(model = m1, X = small_X, N0 = 0)
-m1_fitted_small_prior = fit_hsmm(model = m1, X = small_X, N0 = 0.25*nrow(small_X))
-m1_fitted_equal_prior = fit_hsmm(model = m1, X = small_X, N0 = nrow(small_X))
+m1_fitted_no_prior = fit_hsmm(model = m1, X = small_X, N0_emission = 0)
+m1_fitted_small_prior = fit_hsmm(model = m1, X = small_X, N0_emission = 0.25*nrow(small_X))
+m1_fitted_equal_prior = fit_hsmm(model = m1, X = small_X, N0_emission = nrow(small_X))
 
 ```
 
@@ -981,8 +949,7 @@ vit = predict_states_hsmm(model = m1_fitted_equal_prior$model,
 ```
 
 
-
-
+The option `N0_sojourn` works the same way but for the sojourn distributions. This option is especially useful when sojourns are specified as "non-parametric" and the model is fitted on a short sequences where each state is visited only a few times.
 
 
 ## (semi-)Supervised learning

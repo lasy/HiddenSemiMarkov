@@ -677,19 +677,40 @@ predict_states_hsmm = function(model, X,
 
 #' Fits a hidden semi-Markov model to data sequences
 #'
-#' This function relies on a EM procedure to fit the model parameters to maximize the likelihood of the decoded hidden state sequence.
-#' It returns a list whose first element is the fitted model (an object of class \code{hsmm}) and whose second elements provides information about the EM procedure (convergence, number of iteration, likelihood).
+#' This function relies on a EM procedure to fit the model parameters
+#' to maximize the likelihood of the decoded hidden state sequence.
+#' It returns a two-element list. The first element is the fitted model and
+#' the second elements provides information about the EM procedure
+#' (convergence, number of iteration, likelihood).
 #' @param model a \code{hsmm} object. The model whose parameters will be re-estimated.
 #' @param X a \code{data.frame} of observations.
-#' @param ground_truth (optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known. Default is an empty \code{data.frame}, _i.e._ no ground truth.
-#' @param n_iter (optional) an integer specifying the maximal number of iterations for the EM-procedure. Default value is 10.
-#' @param rel_tol (optional) a positive double specifying the tolerance at which to stop the EM. If the difference in likelihood (normalized by the total sequences length) between two iterations of the EM is smaller than \code{rel_tol}, then the EM procedure is considered to have converged to a local maximum.
-#' @param lock_emission (optional) a logical. Default is \code{FALSE}. Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
-#' @param lock_transition (optional) a logical. Default is \code{FALSE}. Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.
-#' @param lock_sojourn (optional) a logical. Default is \code{FALSE}. Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
-#' @param N0 (optional) a positive number specifying the strength of the prior, i.e. the number of observations (or believed number of observations) which informed the specification of the emission distributions. This number will be used to weight the specified emission distribution against the total lenght of the sequences provided for the fit.
-#' @param use_sojourn_prior (optional) a logical. Default is \code{TRUE}. Specifies if the specified sojourn distributions should be used as a prior when updating the prior distributions at the M-step of the EM.
-#' @param trust_in_ground_truth (optional) a double between 0 and 1 specifying the trust in the ground truth. A value of 0 indicates no trust and is equivalent to not providing ground-truth. A value of 1 indicates full trust and the ground truth will not be modulated by the probability of the values of the observations.
+#' @param ground_truth (optional) a \code{data.frame} of ground truth, _i.e._ time-points where the hidden state is known.
+#' Default is an empty \code{data.frame}, _i.e._ no ground truth.
+#' @param n_iter (optional) an integer specifying the maximal number of iterations for the EM-procedure.
+#' Default value is 10.
+#' @param rel_tol (optional) a positive double specifying the tolerance at which to stop the EM.
+#' If the difference in likelihood (normalized by the total sequences length)
+#' between two iterations of the EM is smaller than \code{rel_tol},
+#' then the EM procedure is considered to have converged to a local maximum.
+#' @param lock_emission (optional) a logical. Default is \code{FALSE}.
+#' Specifies if the emission distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
+#' @param lock_transition (optional) a logical. Default is \code{FALSE}.
+#' Specifies if the transition probability should be locked (kept as is) or re-estimated at the M-step of the EM.
+#' @param lock_sojourn (optional) a logical. Default is \code{FALSE}.
+#' Specifies if the sojourn distributions should be locked (kept as is) or re-estimated at the M-step of the EM.
+#' @param N0_emission (optional) a positive number specifying the (believed) number of observations
+#' which informed the specification of the emission distributions.
+#' This number is used to weight the specified emission distribution
+#' against the total length of the sequences provided for the fit.
+#' This is especially useful when the model if fitted on a small sequences
+#' and may be used on different data. In that case, setting \code{N0_emission} to
+#' a positive value prevents unobserved set of data in the training set to become impossible.
+#' Default value is 0.
+#' @param N0_sojourn (optional) a positive number specifying the (believed) number of observations
+#' which informed the specification of the sojourn distributions. Default value is 0.
+#' @param trust_in_ground_truth (optional) a double between 0 and 1 specifying the trust in the ground truth.
+#' A value of 0 indicates no trust and is equivalent to not providing ground-truth.
+#' A value of 1 indicates full trust and the ground truth will not be modulated by the estimated probability of each state (E-step).
 #' @param verbose a logical (default = \code{FALSE}). Should the function print additional information?
 #' @param graphical a logical (default = \code{FALSE}).
 #'
@@ -719,8 +740,9 @@ fit_hsmm = function(model, X,
                     lock_emission = FALSE,
                     lock_transition = FALSE,
                     lock_sojourn = FALSE,
-                    N0 = 0,
-                    use_sojourn_prior = FALSE,
+                    N0_emission = 0,
+                    N0_sojourn = 0,
+                    #use_sojourn_prior = FALSE,
                     ground_truth = data.frame(),
                     trust_in_ground_truth = 0.75,
                     verbose = FALSE, graphical = FALSE){
@@ -742,7 +764,13 @@ fit_hsmm = function(model, X,
 
   if((trust_in_ground_truth < 0) | (trust_in_ground_truth > 1)) stop("trust_in_ground_truth must be a number between 0 and 1.")
 
-  if(use_sojourn_prior) model$d_prior = .build_d_from_sojourn_dist(model = model, M = max(table(X$seq_id)))
+  if (N0_sojourn > 0)
+    model$d_prior =
+    .build_d_from_sojourn_dist(
+      model = model,
+      M = max(c(table(X$seq_id), .get_longest_sojourn(model = model))))
+
+
 
   # 2. EM
   ll = c(); message = "Reached n_iter" # initializing the vector which keeps track of the log likelihood
@@ -799,8 +827,9 @@ fit_hsmm = function(model, X,
                                         lock_transition = lock_transition,
                                         lock_sojourn = lock_sojourn,
                                         lock_emission = lock_emission,
-                                        use_sojourn_prior = use_sojourn_prior,
-                                        N0 = N0,
+                                        #use_sojourn_prior = use_sojourn_prior,
+                                        N0_emission = N0_emission,
+                                        N0_sojourn = N0_sojourn,
                                         verbose = verbose)
     model = new_model
     # Keep iterating?
@@ -840,13 +869,14 @@ fit_hsmm = function(model, X,
                                    lock_transition = FALSE,
                                    lock_sojourn = FALSE,
                                    lock_emission = FALSE,
-                                   use_sojourn_prior = TRUE,
-                                   N0 = 200,
+                                   #use_sojourn_prior = TRUE,
+                                   N0_emission = 0,
+                                   N0_sojourn = 0,
                                    verbose = FALSE){
   new_model = model
   if(!lock_emission){
     if(verbose) cat("updating observation probabilities\n")
-    new_model = .re_estimate_obs_probs(model = new_model, X = X, w = w, N0 = N0, verbose = verbose)
+    new_model = .re_estimate_obs_probs(model = new_model, X = X, w = w, N0 = N0_emission, verbose = verbose)
   }
   if(!lock_transition){
     if(verbose) cat("updating transition matrix\n")
@@ -854,7 +884,7 @@ fit_hsmm = function(model, X,
   }
   if(!lock_sojourn){
     if(verbose) cat("updating sojourn distributions\n")
-    new_model = .re_estimate_sojourn_distributions(model = new_model, fwbw_res = fwbw_res, use_sojourn_prior = use_sojourn_prior, graphical = verbose)
+    new_model = .re_estimate_sojourn_distributions(model = new_model, fwbw_res = fwbw_res, N0_sojourn, graphical = verbose)
   }
   return(new_model)
 }
@@ -1001,23 +1031,30 @@ fit_hsmm = function(model, X,
 }
 
 
-.re_estimate_sojourn_distributions = function(model, fwbw_res, use_sojourn_prior = TRUE, graphical = FALSE){
+.re_estimate_sojourn_distributions = function(model, fwbw_res, N0_sojourn = 0, graphical = FALSE){
 
   new_model = model
 
   # the smoothed (forward/backward) algorithm returns a new "d" matrix
   ds = fwbw_res$eta %>% matrix(.,ncol = model$J)
+  N_states = colSums(ds)
   # if we want to use Bayesian updating, we need to multiply this new d matrix by the prior.
-  if(use_sojourn_prior){
-    d_prior = model$d_prior
-    if(nrow(d_prior) < nrow(ds)) d_prior = rbind(d_prior, matrix(0, nrow = nrow(ds) - nrow(d_prior), ncol = model$J))
-    if(nrow(d_prior) > nrow(ds)) d_prior = d_prior[1:nrow(ds),]
-    ds = ds * d_prior
-  }
+  # if(use_sojourn_prior){
+  #   d_prior = model$d_prior
+  #   if(nrow(d_prior) < nrow(ds)) d_prior = rbind(d_prior, matrix(0, nrow = nrow(ds) - nrow(d_prior), ncol = model$J))
+  #   if(nrow(d_prior) > nrow(ds)) d_prior = d_prior[1:nrow(ds),]
+  #   ds = ds * d_prior
+  # }
   # This matrix now needs to be normalized such that the sojourn density distribution sums to 1 for any state.
+
   ds = ds %>% apply(.,2,function(x) x/sum(x))
   ds_i = ds # we keep the "initial" ds
   M = nrow(ds) # max sojourn duration
+
+  if (N0_sojourn > 0){
+    f0_sojourn = N0_sojourn / (N0_sojourn + N_states)
+    ds = t( (1 - f0_sojourn) * t(ds) + f0_sojourn * t(model$d_prior) )
+  }
 
   sojourn = purrr::map(
     .x = 1:model$J,
@@ -1035,7 +1072,7 @@ fit_hsmm = function(model, X,
     for(i in 1:model$J){
       max_y = max(c(ds_o[1:100,i],ds_updated[1:100,i]), na.rm = TRUE)
       plot(ds_o[1:100,i], type = "l", col = "black", ylim = c(0,max_y), ylab = "", xlab = "", main = i)
-      if(use_sojourn_prior) points(d_prior[1:100,i], type = "l", col = "blue")
+      # if(use_sojourn_prior) points(d_prior[1:100,i], type = "l", col = "blue")
       points(ds_updated[1:100,i], type = "l", col = "red", lty = 2)
     }
     par(mfrow = c(1,1))
